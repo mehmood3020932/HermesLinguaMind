@@ -67,7 +67,7 @@ dependencies = [
 
     # --- Speech: self-hosted STT (faster-whisper, CTranslate2-based, CPU/GPU) ---
     "faster-whisper==1.0.3",
-    "soundfile==0.12.1",
+    "soundfile==0.14.0",
 
     # --- Grapheme-to-phoneme (drives viseme/lip-sync timing) ---
     "g2p-en==2.1.0",

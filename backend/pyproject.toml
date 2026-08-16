@@ -96,7 +96,7 @@ dev = [
     "isort==5.13.2",
     "flake8==7.1.0",
     "faker==26.0.0",
-    "factory-boy==3.3.0",
+    "factory-boy==3.3.3",
 ]
 
 [build-system]

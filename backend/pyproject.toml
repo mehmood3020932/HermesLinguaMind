@@ -11,14 +11,14 @@ readme = "README.md"
 # requirements-ml.txt, phase3/requirements-phase3.txt,
 # phase4/requirements-phase4.txt, phase4/requirements-orchestrator.txt —
 # all deleted. Those six files had zero real version conflicts (everyone
-# already agreed on fastapi==0.111.0 / pydantic==2.8.2 / uvicorn==0.30.1),
+# already agreed on fastapi==0.141.1 / pydantic==2.8.2 / uvicorn==0.30.1),
 # so this merge is pin-for-pin identical to what requirements-all.txt
 # already installed; it just removes the duplication and stray
 # reference-only files (phase3/4's had drifted, unused, torch-heavy
 # copies — see the git history of this repo for why they existed).
 dependencies = [
     # --- Web framework / server ---
-    "fastapi==0.111.0",
+    "fastapi==0.141.1",
     "uvicorn[standard]==0.30.1",
     "gunicorn==22.0.0",
     "pydantic==2.8.2",

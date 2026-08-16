@@ -1,7 +1,7 @@
 # Tiny public entrypoint: nginx:alpine (~40MB) serves the static frontend
 # and reverse-proxies everything else to the unified adapter on :8080.
 # This is the ONE port (:80) end users/clients actually talk to.
-FROM nginx:1.27-alpine
+FROM nginx:1.31-alpine
 
 RUN rm -f /etc/nginx/conf.d/default.conf
 

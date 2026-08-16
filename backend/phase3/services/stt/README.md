@@ -1,7 +1,7 @@
 # stt Service
 
 ## Purpose
-TODO
+TODO: Describe this service
 
 ## Endpoints
 GET /health

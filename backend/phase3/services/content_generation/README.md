@@ -1,7 +1,7 @@
 # content_generation Service
 
 ## Purpose
-TODO
+TODO: Describe this service
 
 ## Endpoints
 GET /health

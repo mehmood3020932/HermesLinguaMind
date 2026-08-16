@@ -1,7 +1,7 @@
 # llm_orchestration Service
 
 ## Purpose
-TODO
+TODO: Describe this service
 
 ## Endpoints
 GET /health

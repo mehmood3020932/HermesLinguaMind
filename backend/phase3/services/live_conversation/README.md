@@ -1,7 +1,7 @@
 # live_conversation Service
 
 ## Purpose
-TODO
+TODO: Describe this service
 
 ## Endpoints
 GET /health

@@ -23,7 +23,7 @@ dependencies = [
     "gunicorn==22.0.0",
     "pydantic==2.8.2",
     "pydantic-settings==2.3.4",
-    "python-multipart==0.0.9",
+    "python-multipart==0.0.32",
 
     # --- HTTP / networking ---
     "httpx==0.27.0",

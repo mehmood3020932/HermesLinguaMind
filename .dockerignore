@@ -1,0 +1,9 @@
+.git
+.github
+.env
+**/.env
+**/.dart_tool
+**/build
+**/__pycache__
+**/*.pyc
+mobile_app/android/local.properties

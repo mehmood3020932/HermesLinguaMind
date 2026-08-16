@@ -1,0 +1,3311 @@
+# Auto-generated: Deployment + Service + HPA + PodDisruptionBudget for every
+# Hermes microservice. Sized in 3 tiers by expected traffic:
+#   Tier A (gateway/LLM/live-conversation): 5-60 replicas
+#   Tier B (per-request compute services):   3-30 replicas
+#   Tier C (light/background services):      2-15 replicas
+# Apply with: kubectl apply -f phase3/k8s/
+# NOTE: these numbers are a sizing STARTING POINT based on typical
+# request-processing costs per service, not a load-tested guarantee.
+# Reaching 2M real users also needs: DB read replicas / connection
+# pooling (pgbouncer), Redis Cluster, a CDN in front of static/TTS
+# audio, and an actual load test (k6/Locust) to tune these targets —
+# that verification was NOT run in this environment (no cluster access).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hermes-api-gateway
+  namespace: hermes-production
+  labels:
+    app: hermes
+    service: api-gateway
+    version: v3.1.0
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: hermes
+      service: api-gateway
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: '0'
+  template:
+    metadata:
+      labels:
+        app: hermes
+        service: api-gateway
+        version: v3.1.0
+    spec:
+      containers:
+      - name: api-gateway
+        image: hermes/api-gateway:v3.1.0
+        ports:
+        - containerPort: 8000
+          name: http
+        envFrom:
+        - configMapRef:
+            name: hermes-config
+        - secretRef:
+            name: hermes-secrets
+        env:
+        - name: PORT
+          value: '8000'
+        resources:
+          requests:
+            cpu: 500m
+            memory: 512Mi
+          limits:
+            cpu: 2000m
+            memory: 1Gi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 20
+          periodSeconds: 15
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          failureThreshold: 12
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app: hermes
+            service: api-gateway
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hermes-api-gateway
+  namespace: hermes-production
+  labels:
+    app: hermes
+    service: api-gateway
+spec:
+  selector:
+    app: hermes
+    service: api-gateway
+  ports:
+  - port: 8000
+    targetPort: 8000
+    name: http
+  type: ClusterIP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: hermes-api-gateway-hpa
+  namespace: hermes-production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: hermes-api-gateway
+  minReplicas: 5
+  maxReplicas: 60
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 10
+        periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 30
+      - type: Pods
+        value: 4
+        periodSeconds: 30
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: hermes-api-gateway-pdb
+  namespace: hermes-production
+spec:
+  minAvailable: 50%
+  selector:
+    matchLabels:
+      app: hermes
+      service: api-gateway
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hermes-llm-orchestration
+  namespace: hermes-production
+  labels:
+    app: hermes
+    service: llm-orchestration
+    version: v3.1.0
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: hermes
+      service: llm-orchestration
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: '0'
+  template:
+    metadata:
+      labels:
+        app: hermes
+        service: llm-orchestration
+        version: v3.1.0
+    spec:
+      containers:
+      - name: llm-orchestration
+        image: hermes/llm-orchestration:v3.1.0
+        ports:
+        - containerPort: 8001
+          name: http
+        envFrom:
+        - configMapRef:
+            name: hermes-config
+        - secretRef:
+            name: hermes-secrets
+        env:
+        - name: PORT
+          value: '8001'
+        resources:
+          requests:
+            cpu: 500m
+            memory: 512Mi
+          limits:
+            cpu: 2000m
+            memory: 1Gi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8001
+          initialDelaySeconds: 20
+          periodSeconds: 15
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8001
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8001
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          failureThreshold: 12
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app: hermes
+            service: llm-orchestration
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hermes-llm-orchestration
+  namespace: hermes-production
+  labels:
+    app: hermes
+    service: llm-orchestration
+spec:
+  selector:
+    app: hermes
+    service: llm-orchestration
+  ports:
+  - port: 8001
+    targetPort: 8001
+    name: http
+  type: ClusterIP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: hermes-llm-orchestration-hpa
+  namespace: hermes-production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: hermes-llm-orchestration
+  minReplicas: 5
+  maxReplicas: 60
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 10
+        periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 30
+      - type: Pods
+        value: 4
+        periodSeconds: 30
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: hermes-llm-orchestration-pdb
+  namespace: hermes-production
+spec:
+  minAvailable: 50%
+  selector:
+    matchLabels:
+      app: hermes
+      service: llm-orchestration
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hermes-live-conversation
+  namespace: hermes-production
+  labels:
+    app: hermes
+    service: live-conversation
+    version: v3.1.0
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: hermes
+      service: live-conversation
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: '0'
+  template:
+    metadata:
+      labels:
+        app: hermes
+        service: live-conversation
+        version: v3.1.0
+    spec:
+      containers:
+      - name: live-conversation
+        image: hermes/live-conversation:v3.1.0
+        ports:
+        - containerPort: 8017
+          name: http
+        envFrom:
+        - configMapRef:
+            name: hermes-config
+        - secretRef:
+            name: hermes-secrets
+        env:
+        - name: PORT
+          value: '8017'
+        resources:
+          requests:
+            cpu: 500m
+            memory: 512Mi
+          limits:
+            cpu: 2000m
+            memory: 1Gi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8017
+          initialDelaySeconds: 20
+          periodSeconds: 15
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8017
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8017
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          failureThreshold: 12
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app: hermes
+            service: live-conversation
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hermes-live-conversation
+  namespace: hermes-production
+  labels:
+    app: hermes
+    service: live-conversation
+spec:
+  selector:
+    app: hermes
+    service: live-conversation
+  ports:
+  - port: 8017
+    targetPort: 8017
+    name: http
+  type: ClusterIP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: hermes-live-conversation-hpa
+  namespace: hermes-production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: hermes-live-conversation
+  minReplicas: 5
+  maxReplicas: 60
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 10
+        periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 30
+      - type: Pods
+        value: 4
+        periodSeconds: 30
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: hermes-live-conversation-pdb
+  namespace: hermes-production
+spec:
+  minAvailable: 50%
+  selector:
+    matchLabels:
+      app: hermes
+      service: live-conversation
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hermes-stt
+  namespace: hermes-production
+  labels:
+    app: hermes
+    service: stt
+    version: v3.1.0
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: hermes
+      service: stt
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: '0'
+  template:
+    metadata:
+      labels:
+        app: hermes
+        service: stt
+        version: v3.1.0
+    spec:
+      containers:
+      - name: stt
+        image: hermes/stt:v3.1.0
+        ports:
+        - containerPort: 8003
+          name: http
+        envFrom:
+        - configMapRef:
+            name: hermes-config
+        - secretRef:
+            name: hermes-secrets
+        env:
+        - name: PORT
+          value: '8003'
+        resources:
+          requests:
+            cpu: 250m
+            memory: 256Mi
+          limits:
+            cpu: 1000m
+            memory: 512Mi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8003
+          initialDelaySeconds: 20
+          periodSeconds: 15
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8003
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8003
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          failureThreshold: 12
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app: hermes
+            service: stt
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hermes-stt
+  namespace: hermes-production
+  labels:
+    app: hermes
+    service: stt
+spec:
+  selector:
+    app: hermes
+    service: stt
+  ports:
+  - port: 8003
+    targetPort: 8003
+    name: http
+  type: ClusterIP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: hermes-stt-hpa
+  namespace: hermes-production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: hermes-stt
+  minReplicas: 3
+  maxReplicas: 30
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 10
+        periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 30
+      - type: Pods
+        value: 4
+        periodSeconds: 30
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: hermes-stt-pdb
+  namespace: hermes-production
+spec:
+  minAvailable: 50%
+  selector:
+    matchLabels:
+      app: hermes
+      service: stt
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hermes-tts
+  namespace: hermes-production
+  labels:
+    app: hermes
+    service: tts
+    version: v3.1.0
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: hermes
+      service: tts
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: '0'
+  template:
+    metadata:
+      labels:
+        app: hermes
+        service: tts
+        version: v3.1.0
+    spec:
+      containers:
+      - name: tts
+        image: hermes/tts:v3.1.0
+        ports:
+        - containerPort: 8002
+          name: http
+        envFrom:
+        - configMapRef:
+            name: hermes-config
+        - secretRef:
+            name: hermes-secrets
+        env:
+        - name: PORT
+          value: '8002'
+        resources:
+          requests:
+            cpu: 250m
+            memory: 256Mi
+          limits:
+            cpu: 1000m
+            memory: 512Mi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8002
+          initialDelaySeconds: 20
+          periodSeconds: 15
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8002
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8002
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          failureThreshold: 12
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app: hermes
+            service: tts
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hermes-tts
+  namespace: hermes-production
+  labels:
+    app: hermes
+    service: tts
+spec:
+  selector:
+    app: hermes
+    service: tts
+  ports:
+  - port: 8002
+    targetPort: 8002
+    name: http
+  type: ClusterIP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: hermes-tts-hpa
+  namespace: hermes-production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: hermes-tts
+  minReplicas: 3
+  maxReplicas: 30
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 10
+        periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 30
+      - type: Pods
+        value: 4
+        periodSeconds: 30
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: hermes-tts-pdb
+  namespace: hermes-production
+spec:
+  minAvailable: 50%
+  selector:
+    matchLabels:
+      app: hermes
+      service: tts
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hermes-pronunciation
+  namespace: hermes-production
+  labels:
+    app: hermes
+    service: pronunciation
+    version: v3.1.0
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: hermes
+      service: pronunciation
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: '0'
+  template:
+    metadata:
+      labels:
+        app: hermes
+        service: pronunciation
+        version: v3.1.0
+    spec:
+      containers:
+      - name: pronunciation
+        image: hermes/pronunciation:v3.1.0
+        ports:
+        - containerPort: 8005
+          name: http
+        envFrom:
+        - configMapRef:
+            name: hermes-config
+        - secretRef:
+            name: hermes-secrets
+        env:
+        - name: PORT
+          value: '8005'
+        resources:
+          requests:
+            cpu: 250m
+            memory: 256Mi
+          limits:
+            cpu: 1000m
+            memory: 512Mi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8005
+          initialDelaySeconds: 20
+          periodSeconds: 15
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8005
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8005
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          failureThreshold: 12
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app: hermes
+            service: pronunciation
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hermes-pronunciation
+  namespace: hermes-production
+  labels:
+    app: hermes
+    service: pronunciation
+spec:
+  selector:
+    app: hermes
+    service: pronunciation
+  ports:
+  - port: 8005
+    targetPort: 8005
+    name: http
+  type: ClusterIP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: hermes-pronunciation-hpa
+  namespace: hermes-production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: hermes-pronunciation
+  minReplicas: 3
+  maxReplicas: 30
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 10
+        periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 30
+      - type: Pods
+        value: 4
+        periodSeconds: 30
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: hermes-pronunciation-pdb
+  namespace: hermes-production
+spec:
+  minAvailable: 50%
+  selector:
+    matchLabels:
+      app: hermes
+      service: pronunciation
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hermes-content-generation
+  namespace: hermes-production
+  labels:
+    app: hermes
+    service: content-generation
+    version: v3.1.0
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: hermes
+      service: content-generation
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: '0'
+  template:
+    metadata:
+      labels:
+        app: hermes
+        service: content-generation
+        version: v3.1.0
+    spec:
+      containers:
+      - name: content-generation
+        image: hermes/content-generation:v3.1.0
+        ports:
+        - containerPort: 8011
+          name: http
+        envFrom:
+        - configMapRef:
+            name: hermes-config
+        - secretRef:
+            name: hermes-secrets
+        env:
+        - name: PORT
+          value: '8011'
+        resources:
+          requests:
+            cpu: 250m
+            memory: 256Mi
+          limits:
+            cpu: 1000m
+            memory: 512Mi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8011
+          initialDelaySeconds: 20
+          periodSeconds: 15
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8011
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8011
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          failureThreshold: 12
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app: hermes
+            service: content-generation
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hermes-content-generation
+  namespace: hermes-production
+  labels:
+    app: hermes
+    service: content-generation
+spec:
+  selector:
+    app: hermes
+    service: content-generation
+  ports:
+  - port: 8011
+    targetPort: 8011
+    name: http
+  type: ClusterIP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: hermes-content-generation-hpa
+  namespace: hermes-production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: hermes-content-generation
+  minReplicas: 3
+  maxReplicas: 30
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 10
+        periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 30
+      - type: Pods
+        value: 4
+        periodSeconds: 30
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: hermes-content-generation-pdb
+  namespace: hermes-production
+spec:
+  minAvailable: 50%
+  selector:
+    matchLabels:
+      app: hermes
+      service: content-generation
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hermes-personalization
+  namespace: hermes-production
+  labels:
+    app: hermes
+    service: personalization
+    version: v3.1.0
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: hermes
+      service: personalization
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: '0'
+  template:
+    metadata:
+      labels:
+        app: hermes
+        service: personalization
+        version: v3.1.0
+    spec:
+      containers:
+      - name: personalization
+        image: hermes/personalization:v3.1.0
+        ports:
+        - containerPort: 8012
+          name: http
+        envFrom:
+        - configMapRef:
+            name: hermes-config
+        - secretRef:
+            name: hermes-secrets
+        env:
+        - name: PORT
+          value: '8012'
+        resources:
+          requests:
+            cpu: 250m
+            memory: 256Mi
+          limits:
+            cpu: 1000m
+            memory: 512Mi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8012
+          initialDelaySeconds: 20
+          periodSeconds: 15
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8012
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8012
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          failureThreshold: 12
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app: hermes
+            service: personalization
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hermes-personalization
+  namespace: hermes-production
+  labels:
+    app: hermes
+    service: personalization
+spec:
+  selector:
+    app: hermes
+    service: personalization
+  ports:
+  - port: 8012
+    targetPort: 8012
+    name: http
+  type: ClusterIP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: hermes-personalization-hpa
+  namespace: hermes-production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: hermes-personalization
+  minReplicas: 3
+  maxReplicas: 30
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 10
+        periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 30
+      - type: Pods
+        value: 4
+        periodSeconds: 30
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: hermes-personalization-pdb
+  namespace: hermes-production
+spec:
+  minAvailable: 50%
+  selector:
+    matchLabels:
+      app: hermes
+      service: personalization
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hermes-grammar-rule-db
+  namespace: hermes-production
+  labels:
+    app: hermes
+    service: grammar-rule-db
+    version: v3.1.0
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: hermes
+      service: grammar-rule-db
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: '0'
+  template:
+    metadata:
+      labels:
+        app: hermes
+        service: grammar-rule-db
+        version: v3.1.0
+    spec:
+      containers:
+      - name: grammar-rule-db
+        image: hermes/grammar-rule-db:v3.1.0
+        ports:
+        - containerPort: 8010
+          name: http
+        envFrom:
+        - configMapRef:
+            name: hermes-config
+        - secretRef:
+            name: hermes-secrets
+        env:
+        - name: PORT
+          value: '8010'
+        resources:
+          requests:
+            cpu: 250m
+            memory: 256Mi
+          limits:
+            cpu: 1000m
+            memory: 512Mi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8010
+          initialDelaySeconds: 20
+          periodSeconds: 15
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8010
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8010
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          failureThreshold: 12
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app: hermes
+            service: grammar-rule-db
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hermes-grammar-rule-db
+  namespace: hermes-production
+  labels:
+    app: hermes
+    service: grammar-rule-db
+spec:
+  selector:
+    app: hermes
+    service: grammar-rule-db
+  ports:
+  - port: 8010
+    targetPort: 8010
+    name: http
+  type: ClusterIP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: hermes-grammar-rule-db-hpa
+  namespace: hermes-production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: hermes-grammar-rule-db
+  minReplicas: 3
+  maxReplicas: 30
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 10
+        periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 30
+      - type: Pods
+        value: 4
+        periodSeconds: 30
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: hermes-grammar-rule-db-pdb
+  namespace: hermes-production
+spec:
+  minAvailable: 50%
+  selector:
+    matchLabels:
+      app: hermes
+      service: grammar-rule-db
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hermes-coin-ledger
+  namespace: hermes-production
+  labels:
+    app: hermes
+    service: coin-ledger
+    version: v3.1.0
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: hermes
+      service: coin-ledger
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: '0'
+  template:
+    metadata:
+      labels:
+        app: hermes
+        service: coin-ledger
+        version: v3.1.0
+    spec:
+      containers:
+      - name: coin-ledger
+        image: hermes/coin-ledger:v3.1.0
+        ports:
+        - containerPort: 8006
+          name: http
+        envFrom:
+        - configMapRef:
+            name: hermes-config
+        - secretRef:
+            name: hermes-secrets
+        env:
+        - name: PORT
+          value: '8006'
+        resources:
+          requests:
+            cpu: 250m
+            memory: 256Mi
+          limits:
+            cpu: 1000m
+            memory: 512Mi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8006
+          initialDelaySeconds: 20
+          periodSeconds: 15
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8006
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8006
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          failureThreshold: 12
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app: hermes
+            service: coin-ledger
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hermes-coin-ledger
+  namespace: hermes-production
+  labels:
+    app: hermes
+    service: coin-ledger
+spec:
+  selector:
+    app: hermes
+    service: coin-ledger
+  ports:
+  - port: 8006
+    targetPort: 8006
+    name: http
+  type: ClusterIP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: hermes-coin-ledger-hpa
+  namespace: hermes-production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: hermes-coin-ledger
+  minReplicas: 3
+  maxReplicas: 30
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 10
+        periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 30
+      - type: Pods
+        value: 4
+        periodSeconds: 30
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: hermes-coin-ledger-pdb
+  namespace: hermes-production
+spec:
+  minAvailable: 50%
+  selector:
+    matchLabels:
+      app: hermes
+      service: coin-ledger
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hermes-leaderboard
+  namespace: hermes-production
+  labels:
+    app: hermes
+    service: leaderboard
+    version: v3.1.0
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: hermes
+      service: leaderboard
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: '0'
+  template:
+    metadata:
+      labels:
+        app: hermes
+        service: leaderboard
+        version: v3.1.0
+    spec:
+      containers:
+      - name: leaderboard
+        image: hermes/leaderboard:v3.1.0
+        ports:
+        - containerPort: 8014
+          name: http
+        envFrom:
+        - configMapRef:
+            name: hermes-config
+        - secretRef:
+            name: hermes-secrets
+        env:
+        - name: PORT
+          value: '8014'
+        resources:
+          requests:
+            cpu: 250m
+            memory: 256Mi
+          limits:
+            cpu: 1000m
+            memory: 512Mi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8014
+          initialDelaySeconds: 20
+          periodSeconds: 15
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8014
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8014
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          failureThreshold: 12
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app: hermes
+            service: leaderboard
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hermes-leaderboard
+  namespace: hermes-production
+  labels:
+    app: hermes
+    service: leaderboard
+spec:
+  selector:
+    app: hermes
+    service: leaderboard
+  ports:
+  - port: 8014
+    targetPort: 8014
+    name: http
+  type: ClusterIP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: hermes-leaderboard-hpa
+  namespace: hermes-production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: hermes-leaderboard
+  minReplicas: 3
+  maxReplicas: 30
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 10
+        periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 30
+      - type: Pods
+        value: 4
+        periodSeconds: 30
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: hermes-leaderboard-pdb
+  namespace: hermes-production
+spec:
+  minAvailable: 50%
+  selector:
+    matchLabels:
+      app: hermes
+      service: leaderboard
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hermes-social-exchange
+  namespace: hermes-production
+  labels:
+    app: hermes
+    service: social-exchange
+    version: v3.1.0
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: hermes
+      service: social-exchange
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: '0'
+  template:
+    metadata:
+      labels:
+        app: hermes
+        service: social-exchange
+        version: v3.1.0
+    spec:
+      containers:
+      - name: social-exchange
+        image: hermes/social-exchange:v3.1.0
+        ports:
+        - containerPort: 8015
+          name: http
+        envFrom:
+        - configMapRef:
+            name: hermes-config
+        - secretRef:
+            name: hermes-secrets
+        env:
+        - name: PORT
+          value: '8015'
+        resources:
+          requests:
+            cpu: 250m
+            memory: 256Mi
+          limits:
+            cpu: 1000m
+            memory: 512Mi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8015
+          initialDelaySeconds: 20
+          periodSeconds: 15
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8015
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8015
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          failureThreshold: 12
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app: hermes
+            service: social-exchange
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hermes-social-exchange
+  namespace: hermes-production
+  labels:
+    app: hermes
+    service: social-exchange
+spec:
+  selector:
+    app: hermes
+    service: social-exchange
+  ports:
+  - port: 8015
+    targetPort: 8015
+    name: http
+  type: ClusterIP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: hermes-social-exchange-hpa
+  namespace: hermes-production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: hermes-social-exchange
+  minReplicas: 3
+  maxReplicas: 30
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 10
+        periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 30
+      - type: Pods
+        value: 4
+        periodSeconds: 30
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: hermes-social-exchange-pdb
+  namespace: hermes-production
+spec:
+  minAvailable: 50%
+  selector:
+    matchLabels:
+      app: hermes
+      service: social-exchange
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hermes-anti-fraud
+  namespace: hermes-production
+  labels:
+    app: hermes
+    service: anti-fraud
+    version: v3.1.0
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: hermes
+      service: anti-fraud
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: '0'
+  template:
+    metadata:
+      labels:
+        app: hermes
+        service: anti-fraud
+        version: v3.1.0
+    spec:
+      containers:
+      - name: anti-fraud
+        image: hermes/anti-fraud:v3.1.0
+        ports:
+        - containerPort: 8016
+          name: http
+        envFrom:
+        - configMapRef:
+            name: hermes-config
+        - secretRef:
+            name: hermes-secrets
+        env:
+        - name: PORT
+          value: '8016'
+        resources:
+          requests:
+            cpu: 250m
+            memory: 256Mi
+          limits:
+            cpu: 1000m
+            memory: 512Mi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8016
+          initialDelaySeconds: 20
+          periodSeconds: 15
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8016
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8016
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          failureThreshold: 12
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app: hermes
+            service: anti-fraud
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hermes-anti-fraud
+  namespace: hermes-production
+  labels:
+    app: hermes
+    service: anti-fraud
+spec:
+  selector:
+    app: hermes
+    service: anti-fraud
+  ports:
+  - port: 8016
+    targetPort: 8016
+    name: http
+  type: ClusterIP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: hermes-anti-fraud-hpa
+  namespace: hermes-production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: hermes-anti-fraud
+  minReplicas: 3
+  maxReplicas: 30
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 10
+        periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 30
+      - type: Pods
+        value: 4
+        periodSeconds: 30
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: hermes-anti-fraud-pdb
+  namespace: hermes-production
+spec:
+  minAvailable: 50%
+  selector:
+    matchLabels:
+      app: hermes
+      service: anti-fraud
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hermes-memory
+  namespace: hermes-production
+  labels:
+    app: hermes
+    service: memory
+    version: v3.1.0
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: hermes
+      service: memory
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: '0'
+  template:
+    metadata:
+      labels:
+        app: hermes
+        service: memory
+        version: v3.1.0
+    spec:
+      containers:
+      - name: memory
+        image: hermes/memory:v3.1.0
+        ports:
+        - containerPort: 8008
+          name: http
+        envFrom:
+        - configMapRef:
+            name: hermes-config
+        - secretRef:
+            name: hermes-secrets
+        env:
+        - name: PORT
+          value: '8008'
+        resources:
+          requests:
+            cpu: 250m
+            memory: 256Mi
+          limits:
+            cpu: 1000m
+            memory: 512Mi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8008
+          initialDelaySeconds: 20
+          periodSeconds: 15
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8008
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8008
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          failureThreshold: 12
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app: hermes
+            service: memory
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hermes-memory
+  namespace: hermes-production
+  labels:
+    app: hermes
+    service: memory
+spec:
+  selector:
+    app: hermes
+    service: memory
+  ports:
+  - port: 8008
+    targetPort: 8008
+    name: http
+  type: ClusterIP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: hermes-memory-hpa
+  namespace: hermes-production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: hermes-memory
+  minReplicas: 3
+  maxReplicas: 30
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 10
+        periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 30
+      - type: Pods
+        value: 4
+        periodSeconds: 30
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: hermes-memory-pdb
+  namespace: hermes-production
+spec:
+  minAvailable: 50%
+  selector:
+    matchLabels:
+      app: hermes
+      service: memory
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hermes-curriculum
+  namespace: hermes-production
+  labels:
+    app: hermes
+    service: curriculum
+    version: v3.1.0
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: hermes
+      service: curriculum
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: '0'
+  template:
+    metadata:
+      labels:
+        app: hermes
+        service: curriculum
+        version: v3.1.0
+    spec:
+      containers:
+      - name: curriculum
+        image: hermes/curriculum:v3.1.0
+        ports:
+        - containerPort: 8007
+          name: http
+        envFrom:
+        - configMapRef:
+            name: hermes-config
+        - secretRef:
+            name: hermes-secrets
+        env:
+        - name: PORT
+          value: '8007'
+        resources:
+          requests:
+            cpu: 250m
+            memory: 256Mi
+          limits:
+            cpu: 1000m
+            memory: 512Mi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8007
+          initialDelaySeconds: 20
+          periodSeconds: 15
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8007
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8007
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          failureThreshold: 12
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app: hermes
+            service: curriculum
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hermes-curriculum
+  namespace: hermes-production
+  labels:
+    app: hermes
+    service: curriculum
+spec:
+  selector:
+    app: hermes
+    service: curriculum
+  ports:
+  - port: 8007
+    targetPort: 8007
+    name: http
+  type: ClusterIP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: hermes-curriculum-hpa
+  namespace: hermes-production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: hermes-curriculum
+  minReplicas: 3
+  maxReplicas: 30
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 10
+        periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 30
+      - type: Pods
+        value: 4
+        periodSeconds: 30
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: hermes-curriculum-pdb
+  namespace: hermes-production
+spec:
+  minAvailable: 50%
+  selector:
+    matchLabels:
+      app: hermes
+      service: curriculum
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hermes-security
+  namespace: hermes-production
+  labels:
+    app: hermes
+    service: security
+    version: v3.1.0
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: hermes
+      service: security
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: '0'
+  template:
+    metadata:
+      labels:
+        app: hermes
+        service: security
+        version: v3.1.0
+    spec:
+      containers:
+      - name: security
+        image: hermes/security:v3.1.0
+        ports:
+        - containerPort: 8019
+          name: http
+        envFrom:
+        - configMapRef:
+            name: hermes-config
+        - secretRef:
+            name: hermes-secrets
+        env:
+        - name: PORT
+          value: '8019'
+        resources:
+          requests:
+            cpu: 250m
+            memory: 256Mi
+          limits:
+            cpu: 1000m
+            memory: 512Mi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8019
+          initialDelaySeconds: 20
+          periodSeconds: 15
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8019
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8019
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          failureThreshold: 12
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app: hermes
+            service: security
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hermes-security
+  namespace: hermes-production
+  labels:
+    app: hermes
+    service: security
+spec:
+  selector:
+    app: hermes
+    service: security
+  ports:
+  - port: 8019
+    targetPort: 8019
+    name: http
+  type: ClusterIP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: hermes-security-hpa
+  namespace: hermes-production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: hermes-security
+  minReplicas: 3
+  maxReplicas: 30
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 10
+        periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 30
+      - type: Pods
+        value: 4
+        periodSeconds: 30
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: hermes-security-pdb
+  namespace: hermes-production
+spec:
+  minAvailable: 50%
+  selector:
+    matchLabels:
+      app: hermes
+      service: security
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hermes-moderation
+  namespace: hermes-production
+  labels:
+    app: hermes
+    service: moderation
+    version: v3.1.0
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: hermes
+      service: moderation
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: '0'
+  template:
+    metadata:
+      labels:
+        app: hermes
+        service: moderation
+        version: v3.1.0
+    spec:
+      containers:
+      - name: moderation
+        image: hermes/moderation:v3.1.0
+        ports:
+        - containerPort: 8009
+          name: http
+        envFrom:
+        - configMapRef:
+            name: hermes-config
+        - secretRef:
+            name: hermes-secrets
+        env:
+        - name: PORT
+          value: '8009'
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8009
+          initialDelaySeconds: 20
+          periodSeconds: 15
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8009
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8009
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          failureThreshold: 12
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app: hermes
+            service: moderation
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hermes-moderation
+  namespace: hermes-production
+  labels:
+    app: hermes
+    service: moderation
+spec:
+  selector:
+    app: hermes
+    service: moderation
+  ports:
+  - port: 8009
+    targetPort: 8009
+    name: http
+  type: ClusterIP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: hermes-moderation-hpa
+  namespace: hermes-production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: hermes-moderation
+  minReplicas: 2
+  maxReplicas: 15
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 10
+        periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 30
+      - type: Pods
+        value: 4
+        periodSeconds: 30
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: hermes-moderation-pdb
+  namespace: hermes-production
+spec:
+  minAvailable: 50%
+  selector:
+    matchLabels:
+      app: hermes
+      service: moderation
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hermes-observability
+  namespace: hermes-production
+  labels:
+    app: hermes
+    service: observability
+    version: v3.1.0
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: hermes
+      service: observability
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: '0'
+  template:
+    metadata:
+      labels:
+        app: hermes
+        service: observability
+        version: v3.1.0
+    spec:
+      containers:
+      - name: observability
+        image: hermes/observability:v3.1.0
+        ports:
+        - containerPort: 8018
+          name: http
+        envFrom:
+        - configMapRef:
+            name: hermes-config
+        - secretRef:
+            name: hermes-secrets
+        env:
+        - name: PORT
+          value: '8018'
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8018
+          initialDelaySeconds: 20
+          periodSeconds: 15
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8018
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8018
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          failureThreshold: 12
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app: hermes
+            service: observability
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hermes-observability
+  namespace: hermes-production
+  labels:
+    app: hermes
+    service: observability
+spec:
+  selector:
+    app: hermes
+    service: observability
+  ports:
+  - port: 8018
+    targetPort: 8018
+    name: http
+  type: ClusterIP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: hermes-observability-hpa
+  namespace: hermes-production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: hermes-observability
+  minReplicas: 2
+  maxReplicas: 15
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 10
+        periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 30
+      - type: Pods
+        value: 4
+        periodSeconds: 30
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: hermes-observability-pdb
+  namespace: hermes-production
+spec:
+  minAvailable: 50%
+  selector:
+    matchLabels:
+      app: hermes
+      service: observability
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hermes-gesture-emotion
+  namespace: hermes-production
+  labels:
+    app: hermes
+    service: gesture-emotion
+    version: v3.1.0
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: hermes
+      service: gesture-emotion
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: '0'
+  template:
+    metadata:
+      labels:
+        app: hermes
+        service: gesture-emotion
+        version: v3.1.0
+    spec:
+      containers:
+      - name: gesture-emotion
+        image: hermes/gesture-emotion:v3.1.0
+        ports:
+        - containerPort: 8013
+          name: http
+        envFrom:
+        - configMapRef:
+            name: hermes-config
+        - secretRef:
+            name: hermes-secrets
+        env:
+        - name: PORT
+          value: '8013'
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8013
+          initialDelaySeconds: 20
+          periodSeconds: 15
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8013
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8013
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          failureThreshold: 12
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app: hermes
+            service: gesture-emotion
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hermes-gesture-emotion
+  namespace: hermes-production
+  labels:
+    app: hermes
+    service: gesture-emotion
+spec:
+  selector:
+    app: hermes
+    service: gesture-emotion
+  ports:
+  - port: 8013
+    targetPort: 8013
+    name: http
+  type: ClusterIP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: hermes-gesture-emotion-hpa
+  namespace: hermes-production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: hermes-gesture-emotion
+  minReplicas: 2
+  maxReplicas: 15
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 10
+        periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 30
+      - type: Pods
+        value: 4
+        periodSeconds: 30
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: hermes-gesture-emotion-pdb
+  namespace: hermes-production
+spec:
+  minAvailable: 50%
+  selector:
+    matchLabels:
+      app: hermes
+      service: gesture-emotion
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hermes-viseme
+  namespace: hermes-production
+  labels:
+    app: hermes
+    service: viseme
+    version: v3.1.0
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: hermes
+      service: viseme
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: '0'
+  template:
+    metadata:
+      labels:
+        app: hermes
+        service: viseme
+        version: v3.1.0
+    spec:
+      containers:
+      - name: viseme
+        image: hermes/viseme:v3.1.0
+        ports:
+        - containerPort: 8004
+          name: http
+        envFrom:
+        - configMapRef:
+            name: hermes-config
+        - secretRef:
+            name: hermes-secrets
+        env:
+        - name: PORT
+          value: '8004'
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8004
+          initialDelaySeconds: 20
+          periodSeconds: 15
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8004
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8004
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          failureThreshold: 12
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app: hermes
+            service: viseme
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hermes-viseme
+  namespace: hermes-production
+  labels:
+    app: hermes
+    service: viseme
+spec:
+  selector:
+    app: hermes
+    service: viseme
+  ports:
+  - port: 8004
+    targetPort: 8004
+    name: http
+  type: ClusterIP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: hermes-viseme-hpa
+  namespace: hermes-production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: hermes-viseme
+  minReplicas: 2
+  maxReplicas: 15
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 10
+        periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 30
+      - type: Pods
+        value: 4
+        periodSeconds: 30
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: hermes-viseme-pdb
+  namespace: hermes-production
+spec:
+  minAvailable: 50%
+  selector:
+    matchLabels:
+      app: hermes
+      service: viseme
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hermes-email-service
+  namespace: hermes-production
+  labels:
+    app: hermes
+    service: email-service
+    version: v3.1.0
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: hermes
+      service: email-service
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: '0'
+  template:
+    metadata:
+      labels:
+        app: hermes
+        service: email-service
+        version: v3.1.0
+    spec:
+      containers:
+      - name: email-service
+        image: hermes/email-service:v3.1.0
+        ports:
+        - containerPort: 8021
+          name: http
+        envFrom:
+        - configMapRef:
+            name: hermes-config
+        - secretRef:
+            name: hermes-secrets
+        env:
+        - name: PORT
+          value: '8021'
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8021
+          initialDelaySeconds: 20
+          periodSeconds: 15
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8021
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8021
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          failureThreshold: 12
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app: hermes
+            service: email-service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hermes-email-service
+  namespace: hermes-production
+  labels:
+    app: hermes
+    service: email-service
+spec:
+  selector:
+    app: hermes
+    service: email-service
+  ports:
+  - port: 8021
+    targetPort: 8021
+    name: http
+  type: ClusterIP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: hermes-email-service-hpa
+  namespace: hermes-production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: hermes-email-service
+  minReplicas: 2
+  maxReplicas: 15
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 10
+        periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 30
+      - type: Pods
+        value: 4
+        periodSeconds: 30
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: hermes-email-service-pdb
+  namespace: hermes-production
+spec:
+  minAvailable: 50%
+  selector:
+    matchLabels:
+      app: hermes
+      service: email-service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hermes-notification-service
+  namespace: hermes-production
+  labels:
+    app: hermes
+    service: notification-service
+    version: v3.1.0
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: hermes
+      service: notification-service
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: '0'
+  template:
+    metadata:
+      labels:
+        app: hermes
+        service: notification-service
+        version: v3.1.0
+    spec:
+      containers:
+      - name: notification-service
+        image: hermes/notification-service:v3.1.0
+        ports:
+        - containerPort: 8022
+          name: http
+        envFrom:
+        - configMapRef:
+            name: hermes-config
+        - secretRef:
+            name: hermes-secrets
+        env:
+        - name: PORT
+          value: '8022'
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8022
+          initialDelaySeconds: 20
+          periodSeconds: 15
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8022
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8022
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          failureThreshold: 12
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app: hermes
+            service: notification-service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hermes-notification-service
+  namespace: hermes-production
+  labels:
+    app: hermes
+    service: notification-service
+spec:
+  selector:
+    app: hermes
+    service: notification-service
+  ports:
+  - port: 8022
+    targetPort: 8022
+    name: http
+  type: ClusterIP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: hermes-notification-service-hpa
+  namespace: hermes-production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: hermes-notification-service
+  minReplicas: 2
+  maxReplicas: 15
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 10
+        periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 30
+      - type: Pods
+        value: 4
+        periodSeconds: 30
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: hermes-notification-service-pdb
+  namespace: hermes-production
+spec:
+  minAvailable: 50%
+  selector:
+    matchLabels:
+      app: hermes
+      service: notification-service

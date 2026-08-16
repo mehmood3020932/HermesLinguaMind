@@ -1,0 +1,58 @@
+# Secrets / local configuration
+.env
+.env.*
+!.env.example
+*.local
+*.pem
+*.key
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+build/
+coverage/
+*.iml
+.idea/
+.vscode/
+
+# Android local files
+mobile_app/android/local.properties
+mobile_app/android/.gradle/
+mobile_app/android/app/debug/
+mobile_app/android/app/profile/
+mobile_app/android/app/release/
+
+# iOS / macOS
+mobile_app/ios/Pods/
+mobile_app/ios/.symlinks/
+mobile_app/ios/Flutter/ephemeral/
+DerivedData/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Generated runtime data
+backend/data/
+backend/logs/
+backend/email_outbox/
+backend/third_party/
+*.sqlite3
+
+# IDE / tooling
+*.swp
+*.swo

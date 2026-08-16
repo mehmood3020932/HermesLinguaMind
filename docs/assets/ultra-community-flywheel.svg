@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1020" height="520" viewBox="0 0 1020 520">
+<defs><linearGradient id="bg" x1="0" x2="1"><stop stop-color="#070b16"/><stop offset="1" stop-color="#121b31"/></linearGradient></defs>
+<rect width="100%" height="100%" rx="36" fill="url(#bg)"/>
+<text x="70" y="70" fill="#ffffff" font-family="Inter,Arial,sans-serif" font-size="34" font-weight="800">Community Flywheel</text>
+<text x="70" y="108" fill="#91a1ba" font-family="Inter,Arial,sans-serif" font-size="17">A transparent contribution loop designed to turn users into builders.</text>
+<g>
+<rect x="70" y="170" width="270" height="230" rx="28" fill="#10182a" stroke="#6ee7f9" stroke-width="2"/>
+<circle cx="112" cy="215" r="12" fill="#6ee7f9"/>
+<text x="138" y="222" fill="#ffffff" font-family="Inter,Arial,sans-serif" font-size="22" font-weight="700">Discover</text>
+<foreignObject x="98" y="252" width="214" height="125">
+<div xmlns="http://www.w3.org/1999/xhtml" style="font:16px Inter,Arial,sans-serif;color:#b9c4d8;line-height:1.5">Beautiful demos, docs and examples<br/>invite people to try Hermes.</div>
+</foreignObject>
+</g><path d="M 339.5 285 L 375.5 285 M 362.5 272 L 375.5 285 L 362.5 298" stroke="#6ee7f9" stroke-width="3" fill="none"/><g>
+<rect x="375" y="170" width="270" height="230" rx="28" fill="#10182a" stroke="#34d399" stroke-width="2"/>
+<circle cx="417" cy="215" r="12" fill="#34d399"/>
+<text x="443" y="222" fill="#ffffff" font-family="Inter,Arial,sans-serif" font-size="22" font-weight="700">Contribute</text>
+<foreignObject x="403" y="252" width="214" height="125">
+<div xmlns="http://www.w3.org/1999/xhtml" style="font:16px Inter,Arial,sans-serif;color:#b9c4d8;line-height:1.5">Language packs, code, tests, docs<br/>and accessibility improvements.</div>
+</foreignObject>
+</g><path d="M 644.5 285 L 680.5 285 M 667.5 272 L 680.5 285 L 667.5 298" stroke="#6ee7f9" stroke-width="3" fill="none"/><g>
+<rect x="680" y="170" width="270" height="230" rx="28" fill="#10182a" stroke="#f59e0b" stroke-width="2"/>
+<circle cx="722" cy="215" r="12" fill="#f59e0b"/>
+<text x="748" y="222" fill="#ffffff" font-family="Inter,Arial,sans-serif" font-size="22" font-weight="700">Support</text>
+<foreignObject x="708" y="252" width="214" height="125">
+<div xmlns="http://www.w3.org/1999/xhtml" style="font:16px Inter,Arial,sans-serif;color:#b9c4d8;line-height:1.5">Sponsors fund infrastructure, models<br/>and sustainable maintenance.</div>
+</foreignObject>
+</g>
+<text x="70" y="465" fill="#6ee7f9" font-family="Inter,Arial,sans-serif" font-size="14">HERMES LINGUAMIND • OPEN SOURCE • COMMUNITY BUILT</text>
+</svg>

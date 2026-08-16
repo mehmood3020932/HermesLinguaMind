@@ -1,0 +1,6 @@
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Welcome to Hermes LinguaMind 🌍
+        Tell us what language you speak, what you want to learn, and how you'd like to contribute.

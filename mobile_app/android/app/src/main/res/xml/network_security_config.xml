@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Local-dev-only network security config.
+
+  The bundled backend runs over plain HTTP (no TLS) on your machine, and
+  Android blocks plaintext HTTP by default since API 28. This config scopes
+  cleartext permission to just the hosts a local backend is realistically
+  reached on (localhost, the Android emulator's host alias, and private
+  LAN ranges) instead of allowing cleartext everywhere.
+
+  Before shipping to real users, put the backend behind HTTPS and delete
+  this file (and the usesCleartextTraffic/networkSecurityConfig attributes
+  in AndroidManifest.xml).
+-->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">localhost</domain>
+        <domain includeSubdomains="false">127.0.0.1</domain>
+        <domain includeSubdomains="false">10.0.2.2</domain>
+    </domain-config>
+    <!-- Fallback: still allow cleartext to any host so a LAN IP typed into
+         API_BASE_URL (e.g. http://192.168.1.42:8000) works out of the box
+         during development. Remove this base-config block once you point
+         the app at a real HTTPS backend. -->
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#070914">
+  <meta name="description" content="Hermes LinguaMind — an open-source AI language tutor that teaches your target language through your native language, with voice, personalization and AI companions.">
+  <meta property="og:title" content="Hermes LinguaMind — Learn in your language. Speak with confidence.">
+  <meta property="og:description" content="Open-source AI language learning through native-language explanations, target-language practice, voice conversations and AI companions.">
+  <meta property="og:type" content="website">
+  <title>Hermes LinguaMind — Your AI language companion</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="assets/hermes-mark.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="noise"></div>
+  <header class="nav">
+    <a class="brand" href="#top" aria-label="Hermes LinguaMind home">
+      <span class="mark">H</span><span>Hermes <em>LinguaMind</em></span>
+    </a>
+    <nav aria-label="Primary navigation">
+      <a href="#experience">Experience</a>
+      <a href="#architecture">Architecture</a>
+      <a href="#community">Community</a>
+      <a class="pill" href="https://github.com/mehmood3020932/HermesLinguaMind" target="_blank" rel="noreferrer">GitHub ↗</a>
+    </nav>
+  </header>
+
+  <main id="top">
+    <section class="hero shell">
+      <div class="hero-copy">
+        <div class="eyebrow"><span class="live-dot"></span> OPEN-SOURCE AI LANGUAGE TUTOR</div>
+        <h1>Learn in <span>your language.</span><br>Speak with confidence.</h1>
+        <p class="lead">Tell Hermes your native language, the language you want to learn, and your level. It explains what is difficult in your language — then gets you speaking in the target language.</p>
+        <div class="actions">
+          <a class="primary" href="#live-lab">Try the live tutor <span>→</span></a>
+          <a class="secondary" href="#experience">Explore the experience</a>
+        </div>
+        <div class="trust-row">
+          <span>Local-first AI</span><span>Voice ready</span><span>Flutter + Python</span><span>Docker</span><span>Open source</span>
+        </div>
+      </div>
+      <div class="hero-stage" aria-label="Hermes AI companion preview">
+        <div class="halo halo-a"></div><div class="halo halo-b"></div>
+        <div class="companion-card">
+          <div class="card-top"><span class="status"><i></i> Hermes companion</span><span>LIVE PREVIEW</span></div>
+          <div class="avatar-scene">
+            <div class="orb-glow"></div>
+            <div class="avatar-head"><div class="hair"></div><div class="ear e-left"></div><div class="ear e-right"></div><div class="face"><span class="eye left"></span><span class="eye right"></span><span class="brow left"></span><span class="brow right"></span><span class="nose"></span><span class="mouth"></span></div></div>
+            <div class="voice-wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          </div>
+          <div class="speech"><span class="spark">✦</span><div><strong>Luna</strong><p>“Let's practice English. I'll explain tricky parts in Urdu.”</p></div></div>
+        </div>
+        <div class="floating-chip chip-one">🇵🇰 Urdu → 🇬🇧 English</div>
+        <div class="floating-chip chip-two">🎙 Voice conversation</div>
+        <div class="floating-chip chip-three">🧠 Personalized memory</div>
+      </div>
+    </section>
+
+    <section class="metrics shell" aria-label="Platform capabilities">
+      <div><strong>1</strong><span>native-language learning path</span></div>
+      <div><strong>1</strong><span>unified AI gateway</span></div>
+      <div><strong>23+</strong><span>service capabilities in the backend</span></div>
+      <div><strong>∞</strong><span>community language packs</span></div>
+    </section>
+
+    <section id="experience" class="section shell">
+      <div class="section-head"><div><div class="eyebrow">THE WOW MOMENT</div><h2>It doesn't just translate.<br><span>It teaches.</span></h2></div><p>Hermes separates the learner's explanation language from the target language, so a beginner can understand the lesson without losing immersion.</p></div>
+      <div class="journey">
+        <article class="journey-card"><span>01</span><h3>Choose your languages</h3><p>Native: Urdu. Target: English. Level: Beginner.</p><div class="mini-ui"><b>🇵🇰 Urdu</b><i>→</i><b>🇬🇧 English</b></div></article>
+        <article class="journey-card"><span>02</span><h3>Meet your tutor</h3><p>Pick a companion personality and learning style.</p><div class="mini-avatar"><div></div><b>Luna · Encouraging</b></div></article>
+        <article class="journey-card"><span>03</span><h3>Speak, don't just tap</h3><p>Talk naturally. Hermes listens, reasons, responds and gives focused corrections.</p><div class="wave-small"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></article>
+        <article class="journey-card"><span>04</span><h3>Remember & improve</h3><p>Progress, mistakes and learning signals feed future sessions.</p><div class="progress"><b style="width:72%"></b></div><small>Conversation confidence · 72%</small></article>
+      </div>
+    </section>
+
+    <section id="live-lab" class="lab shell">
+      <div class="lab-copy"><div class="eyebrow">LIVE BACKEND LAB</div><h2>Talk to Hermes from this website.</h2><p>This panel uses the same public gateway your production clients use. It checks backend health and sends a real <code>POST /v1/chat</code> request. No fake AI response is shown when the backend is unavailable.</p><div class="health-card"><span id="health-dot" class="health-dot"></span><div><strong id="health-title">Checking backend…</strong><p id="health-detail">Connecting to the Hermes gateway.</p></div><button id="refresh-health" class="icon-btn" title="Refresh health">↻</button></div></div>
+      <div class="chat-card">
+        <div class="chat-top"><div><strong>Hermes Tutor</strong><span id="service-count">Gateway status pending</span></div><span class="secure">● Same-origin API</span></div>
+        <div class="chat-settings"><label>Native language<select id="native-language"><option value="Urdu">🇵🇰 Urdu</option><option value="Hindi">🇮🇳 Hindi</option><option value="Arabic">🇸🇦 Arabic</option><option value="Spanish">🇪🇸 Spanish</option><option value="French">🇫🇷 French</option><option value="German">🇩🇪 German</option></select></label><label>Target language<select id="target-language"><option value="English">🇬🇧 English</option><option value="Spanish">🇪🇸 Spanish</option><option value="French">🇫🇷 French</option><option value="German">🇩🇪 German</option><option value="Arabic">🇸🇦 Arabic</option></select></label></div>
+        <div id="chat-log" class="chat-log"><div class="bubble ai"><span class="bubble-label">Hermes</span><p>Tell me what you want to learn. I'll adapt the explanation to your native language.</p></div></div>
+        <form id="chat-form" class="chat-form"><input id="chat-input" autocomplete="off" placeholder="e.g. Teach me how to introduce myself…" aria-label="Message Hermes"><button id="send-btn" class="send" type="submit">Send <span>↗</span></button></form>
+        <div id="chat-error" class="chat-error" role="alert" hidden></div>
+      </div>
+    </section>
+
+    <section id="architecture" class="section shell">
+      <div class="section-head"><div><div class="eyebrow">ONE PLATFORM, PLUGGABLE INTELLIGENCE</div><h2>Designed to scale from a laptop to an enterprise deployment.</h2></div><p>The website, mobile app and future clients share the same gateway. Local LLM, STT, TTS, memory, curriculum and avatar capabilities stay behind a clean service boundary.</p></div>
+      <div class="architecture-grid">
+        <div class="arch-card featured"><div class="arch-icon">01</div><h3>Experience layer</h3><p>Website + Flutter mobile app + companion surfaces.</p><div class="arch-line">Web / Mobile / Avatar UI</div></div>
+        <div class="arch-card"><div class="arch-icon">02</div><h3>Unified gateway</h3><p>One public API surface for chat, health, service discovery and service proxies.</p><div class="arch-line">/v1/chat · /health · /v1/services</div></div>
+        <div class="arch-card"><div class="arch-icon">03</div><h3>AI & learning core</h3><p>LLM orchestration, curriculum, memory, personalization, grammar and pronunciation.</p><div class="arch-line">Local-first + provider adapters</div></div>
+        <div class="arch-card"><div class="arch-icon">04</div><h3>Voice & companion</h3><p>STT → LLM → TTS → visemes/emotion → lightweight companion or optional real avatar inference.</p><div class="arch-line">CPU baseline · OpenTalking adapter</div></div>
+        <div class="arch-card"><div class="arch-icon">05</div><h3>Data & operations</h3><p>PostgreSQL, Redis, Elasticsearch, observability and secure deployment patterns.</p><div class="arch-line">Docker Compose → Kubernetes path</div></div>
+      </div>
+      <div class="visuals"><figure><img src="/assets/ai-learning-loop.svg" alt="AI learning and avatar loop"><figcaption>AI learning + avatar loop</figcaption></figure><figure><img src="/assets/delivery-architecture.svg" alt="Enterprise delivery architecture"><figcaption>Enterprise delivery architecture</figcaption></figure><figure><img src="/assets/community-flywheel.svg" alt="Community growth flywheel"><figcaption>Community growth flywheel</figcaption></figure></div>
+    </section>
+
+    <section id="community" class="section dark shell-wide"><div class="shell"><div class="section-head"><div><div class="eyebrow">OPEN SOURCE BY DESIGN</div><h2>Every language can become a contribution.</h2></div><p>Contributors can add language packs, lessons, voices, Flutter UX, provider adapters, avatar integrations, tests and deployment recipes.</p></div><div class="community-grid"><div class="community-big"><span>🌍</span><strong>Language packs</strong><p>Native-language explanations and target-language curriculum can grow independently.</p></div><div><b>🎙 Speech</b><p>STT/TTS providers and pronunciation improvements.</p></div><div><b>🎭 Avatars</b><p>Companion skins and pluggable inference adapters.</p></div><div><b>🧪 Quality</b><p>Tests, accessibility, benchmarks and reliability work.</p></div><div><b>🛠 DevOps</b><p>Deployment, observability and scaling recipes.</p></div></div><div class="community-cta"><a class="primary" href="https://github.com/mehmood3020932/HermesLinguaMind/issues" target="_blank" rel="noreferrer">Find an issue →</a><a class="secondary" href="https://github.com/mehmood3020932/HermesLinguaMind" target="_blank" rel="noreferrer">Star Hermes ★</a></div></div></section>
+
+    <section class="section shell roadmap"><div class="section-head"><div><div class="eyebrow">ROADMAP</div><h2>Build trust first. Then scale.</h2></div><p>Investor readiness comes from real users, retention, learning outcomes and sustainable economics — never fake traction.</p></div><div class="roadmap-list"><div><b>01 · Foundation</b><span>Reliable local setup, CI, security, docs and API contracts.</span></div><div><b>02 · Tutor</b><span>Native-language explanations, target-language practice, pronunciation and memory.</span></div><div><b>03 · Companion</b><span>CPU-friendly baseline plus optional real avatar inference.</span></div><div><b>04 · Community</b><span>Language packs, contributors, localization and public demos.</span></div><div><b>05 · Growth</b><span>Analytics, referrals, premium learning features and education pilots.</span></div></div></section>
+
+    <section class="final-cta shell"><div><div class="eyebrow">READY TO BUILD</div><h2>Make language learning feel human.</h2><p>Try the live gateway, explore the architecture, or join the open-source project.</p></div><div class="actions"><a class="primary" href="#live-lab">Launch live tutor →</a><a class="secondary" href="https://github.com/mehmood3020932/HermesLinguaMind" target="_blank" rel="noreferrer">Open GitHub ↗</a></div></section>
+  </main>
+  <footer class="footer shell"><div class="brand"><span class="mark small">H</span><span>Hermes LinguaMind</span></div><span>Open-source foundation · Honest capability claims · Privacy-conscious by design</span><a href="/docs" target="_blank">API Docs ↗</a></footer>
+  <script src="app.js" defer></script>
+</body>
+</html>

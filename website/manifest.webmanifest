@@ -1,0 +1,10 @@
+{
+  "name": "Hermes LinguaMind",
+  "short_name": "Hermes",
+  "description": "Open-source AI language tutor with native-language explanations, voice and companion experiences.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#060711",
+  "theme_color": "#060711",
+  "icons": [{"src":"/assets/hermes-mark.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]
+}

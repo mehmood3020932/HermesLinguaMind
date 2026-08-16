@@ -1,0 +1,99 @@
+.
+├── BUILD_LEDGER.md
+├── config
+│   ├── docker-compose.yml
+│   └── .env.example
+├── .dockerignore
+├── docs
+│   └── API.md
+├── .gitignore
+├── k8s
+│   ├── configmap.yaml
+│   ├── deployment.yaml
+│   └── hpa.yaml
+├── Project_Structure.txt
+├── README.md
+├── requirements-phase3.txt
+├── scripts
+│   ├── start_all.sh
+│   └── stop_all.sh
+├── services
+│   ├── anti_fraud
+│   │   ├── Dockerfile
+│   │   └── main.py
+│   ├── api_gateway
+│   │   ├── Dockerfile
+│   │   └── main.py
+│   ├── coin_ledger
+│   │   ├── Dockerfile
+│   │   └── main.py
+│   ├── content_generation
+│   │   ├── Dockerfile
+│   │   └── main.py
+│   ├── curriculum
+│   │   ├── Dockerfile
+│   │   └── main.py
+│   ├── gesture_emotion
+│   │   ├── Dockerfile
+│   │   └── main.py
+│   ├── grammar_rule_db
+│   │   ├── Dockerfile
+│   │   └── main.py
+│   ├── leaderboard
+│   │   ├── Dockerfile
+│   │   └── main.py
+│   ├── live_conversation
+│   │   ├── Dockerfile
+│   │   └── main.py
+│   ├── llm_orchestration
+│   │   ├── Dockerfile
+│   │   └── main.py
+│   ├── memory
+│   │   ├── Dockerfile
+│   │   └── main.py
+│   ├── moderation
+│   │   ├── Dockerfile
+│   │   └── main.py
+│   ├── observability
+│   │   ├── Dockerfile
+│   │   └── main.py
+│   ├── personalization
+│   │   ├── Dockerfile
+│   │   └── main.py
+│   ├── pronunciation
+│   │   ├── Dockerfile
+│   │   └── main.py
+│   ├── security
+│   │   ├── Dockerfile
+│   │   └── main.py
+│   ├── social_exchange
+│   │   ├── Dockerfile
+│   │   └── main.py
+│   ├── stt
+│   │   ├── Dockerfile
+│   │   └── main.py
+│   ├── tts
+│   │   ├── Dockerfile
+│   │   └── main.py
+│   └── viseme
+│       ├── Dockerfile
+│       └── main.py
+├── shared
+│   ├── __init__.py
+│   ├── middleware
+│   │   ├── auth.py
+│   │   └── __init__.py
+│   ├── models
+│   │   ├── common.py
+│   │   └── __init__.py
+│   └── utils
+│       ├── helpers.py
+│       └── __init__.py
+└── tests
+    ├── integration
+    ├── load
+    ├── security
+    ├── test_phase3_complete.py
+    └── unit
+
+35 directories, 62 files

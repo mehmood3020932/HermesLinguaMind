@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="720" viewBox="0 0 1400 720">
+<defs><linearGradient id="g" x1="0" x2="1"><stop stop-color="#111827"/><stop offset="1" stop-color="#312e81"/></linearGradient><filter id="s"><feDropShadow dx="0" dy="8" stdDeviation="10" flood-opacity=".18"/></filter></defs>
+<rect width="1400" height="720" rx="28" fill="#f8fafc"/>
+<text x="70" y="70" font-family="Arial,sans-serif" font-size="34" font-weight="700" fill="#111827">Hermes AI Learning &amp; Avatar Loop</text>
+<text x="70" y="108" font-family="Arial,sans-serif" font-size="18" fill="#475569">Native-language explanation → target-language practice → feedback → memory → better lessons</text>
+<g filter="url(#s)">
+<rect x="70" y="180" width="220" height="130" rx="22" fill="url(#g)"/><text x="180" y="225" text-anchor="middle" fill="white" font-family="Arial" font-size="24" font-weight="700">Learner</text><text x="180" y="260" text-anchor="middle" fill="#cbd5e1" font-family="Arial" font-size="16">Native + target + level</text>
+<rect x="380" y="180" width="250" height="130" rx="22" fill="#ffffff"/><text x="505" y="225" text-anchor="middle" fill="#111827" font-family="Arial" font-size="24" font-weight="700">Hermes Tutor</text><text x="505" y="260" text-anchor="middle" fill="#475569" font-family="Arial" font-size="16">Plan • teach • personalize</text>
+<rect x="720" y="180" width="250" height="130" rx="22" fill="#ffffff"/><text x="845" y="225" text-anchor="middle" fill="#111827" font-family="Arial" font-size="24" font-weight="700">Voice Pipeline</text><text x="845" y="260" text-anchor="middle" fill="#475569" font-family="Arial" font-size="16">STT • LLM • TTS • visemes</text>
+<rect x="1060" y="180" width="270" height="130" rx="22" fill="#ffffff"/><text x="1195" y="225" text-anchor="middle" fill="#111827" font-family="Arial" font-size="24" font-weight="700">AI Companion</text><text x="1195" y="260" text-anchor="middle" fill="#475569" font-family="Arial" font-size="16">CPU avatar / real inference</text>
+</g>
+<g stroke="#64748b" stroke-width="5" fill="none"><path d="M290 245h90"/><path d="M630 245h90"/><path d="M970 245h90"/></g>
+<g font-family="Arial" font-size="15" fill="#334155"><text x="330" y="225">lesson intent</text><text x="670" y="225">response + coaching</text><text x="1000" y="225">speech + expression</text></g>
+<g filter="url(#s)"><rect x="300" y="430" width="800" height="170" rx="24" fill="#fff"/><text x="700" y="475" text-anchor="middle" font-family="Arial" font-size="25" font-weight="700" fill="#111827">Learning Intelligence</text><text x="700" y="515" text-anchor="middle" font-family="Arial" font-size="17" fill="#475569">Mistakes • pronunciation • vocabulary • confidence • progress</text><text x="700" y="550" text-anchor="middle" font-family="Arial" font-size="17" fill="#475569">Updates learner memory and adapts the next lesson</text></g>
+<path d="M1195 310 C1195 385 1120 430 1010 430" fill="none" stroke="#4f46e5" stroke-width="5"/>
+<path d="M300 515 C210 515 180 400 180 310" fill="none" stroke="#4f46e5" stroke-width="5"/>
+<text x="1190" y="390" font-family="Arial" font-size="16" fill="#4338ca">feedback</text><text x="205" y="405" font-family="Arial" font-size="16" fill="#4338ca">next session</text>
+</svg>

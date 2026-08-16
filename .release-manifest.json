@@ -1,0 +1,11 @@
+{
+  "product": "Hermes LinguaMind",
+  "release_channel": "production-candidate",
+  "website": "website/",
+  "mobile": "mobile_app/",
+  "backend": "backend/",
+  "public_api_prefix": "/v1",
+  "public_health": "/health",
+  "optional_avatar_profile": "avatar",
+  "truth_policy": "Do not claim runtime certification, real-avatar inference, user traction, or sponsorship unless verified."
+}

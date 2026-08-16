@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Questions & community discussions
+    url: https://github.com/mehmood3020932/HermesLinguaMind/discussions
+    about: Ask questions, share ideas, show your builds, and meet contributors.
+  - name: 🔐 Security vulnerability
+    url: https://github.com/mehmood3020932/HermesLinguaMind/security/policy
+    about: Please use the private security reporting process for vulnerabilities.

@@ -1,0 +1,335 @@
+version: "3.9"
+
+services:
+  # ── Infrastructure ──
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: hermes
+      POSTGRES_PASSWORD: hermes_dev_pass
+      POSTGRES_DB: hermes_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hermes"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hermes_network
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - hermes_network
+
+  elasticsearch:
+    image: elasticsearch:8.14.0
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hermes_network
+
+  # ── Phase 1 Services ──
+  api_gateway:
+    build:
+      context: ..
+      dockerfile: services/api_gateway/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-hermes-dev-change-in-production}
+      - PORT=8000
+    depends_on:
+      - redis
+    networks:
+      - hermes_network
+
+  llm_orchestration:
+    build:
+      context: ..
+      dockerfile: services/llm_orchestration/Dockerfile
+    ports:
+      - "8001:8001"
+    environment:
+      - PORT=8001
+      - FREELLM_API_KEY=${FREELLM_API_KEY:-}
+      - OLLAMA_URL=${OLLAMA_URL:-http://localhost:11434}
+    networks:
+      - hermes_network
+
+  tts:
+    build:
+      context: ..
+      dockerfile: services/tts/Dockerfile
+    ports:
+      - "8002:8002"
+    environment:
+      - PORT=8002
+    networks:
+      - hermes_network
+
+  stt:
+    build:
+      context: ..
+      dockerfile: services/stt/Dockerfile
+    ports:
+      - "8003:8003"
+    environment:
+      - PORT=8003
+    networks:
+      - hermes_network
+
+  viseme:
+    build:
+      context: ..
+      dockerfile: services/viseme/Dockerfile
+    ports:
+      - "8004:8004"
+    environment:
+      - PORT=8004
+    networks:
+      - hermes_network
+
+  pronunciation:
+    build:
+      context: ..
+      dockerfile: services/pronunciation/Dockerfile
+    ports:
+      - "8005:8005"
+    environment:
+      - PORT=8005
+    networks:
+      - hermes_network
+
+  coin_ledger:
+    build:
+      context: ..
+      dockerfile: services/coin_ledger/Dockerfile
+    ports:
+      - "8006:8006"
+    environment:
+      - PORT=8006
+      - DATABASE_URL=postgresql://hermes:hermes_dev_pass@postgres:5432/hermes_db
+    depends_on:
+      - postgres
+    networks:
+      - hermes_network
+
+  curriculum:
+    build:
+      context: ..
+      dockerfile: services/curriculum/Dockerfile
+    ports:
+      - "8007:8007"
+    environment:
+      - PORT=8007
+    networks:
+      - hermes_network
+
+  memory:
+    build:
+      context: ..
+      dockerfile: services/memory/Dockerfile
+    ports:
+      - "8008:8008"
+    environment:
+      - PORT=8008
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
+    networks:
+      - hermes_network
+
+  moderation:
+    build:
+      context: ..
+      dockerfile: services/moderation/Dockerfile
+    ports:
+      - "8009:8009"
+    environment:
+      - PORT=8009
+    networks:
+      - hermes_network
+
+  # ── Phase 2 Services ──
+  grammar_rule_db:
+    build:
+      context: ..
+      dockerfile: services/grammar_rule_db/Dockerfile
+    ports:
+      - "8010:8010"
+    environment:
+      - PORT=8010
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+    depends_on:
+      - elasticsearch
+    networks:
+      - hermes_network
+
+  content_generation:
+    build:
+      context: ..
+      dockerfile: services/content_generation/Dockerfile
+    ports:
+      - "8011:8011"
+    environment:
+      - PORT=8011
+      - CELERY_BROKER_URL=redis://redis:6379/0
+    depends_on:
+      - redis
+    networks:
+      - hermes_network
+
+  personalization:
+    build:
+      context: ..
+      dockerfile: services/personalization/Dockerfile
+    ports:
+      - "8012:8012"
+    environment:
+      - PORT=8012
+    networks:
+      - hermes_network
+
+  gesture_emotion:
+    build:
+      context: ..
+      dockerfile: services/gesture_emotion/Dockerfile
+    ports:
+      - "8013:8013"
+    environment:
+      - PORT=8013
+    networks:
+      - hermes_network
+
+  leaderboard:
+    build:
+      context: ..
+      dockerfile: services/leaderboard/Dockerfile
+    ports:
+      - "8014:8014"
+    environment:
+      - PORT=8014
+    networks:
+      - hermes_network
+
+  social_exchange:
+    build:
+      context: ..
+      dockerfile: services/social_exchange/Dockerfile
+    ports:
+      - "8015:8015"
+    environment:
+      - PORT=8015
+    networks:
+      - hermes_network
+
+  anti_fraud:
+    build:
+      context: ..
+      dockerfile: services/anti_fraud/Dockerfile
+    ports:
+      - "8016:8016"
+    environment:
+      - PORT=8016
+    networks:
+      - hermes_network
+
+  live_conversation:
+    build:
+      context: ..
+      dockerfile: services/live_conversation/Dockerfile
+    ports:
+      - "8017:8017"
+    environment:
+      - PORT=8017
+    networks:
+      - hermes_network
+
+  # ── Phase 3 Services ──
+  observability:
+    build:
+      context: ..
+      dockerfile: services/observability/Dockerfile
+    ports:
+      - "8018:8018"
+    environment:
+      - PORT=8018
+    networks:
+      - hermes_network
+
+  security:
+    build:
+      context: ..
+      dockerfile: services/security/Dockerfile
+    ports:
+      - "8019:8019"
+    environment:
+      - PORT=8019
+      - DATABASE_URL=postgresql://hermes:hermes_dev_pass@postgres:5432/hermes_db
+    depends_on:
+      - postgres
+    networks:
+      - hermes_network
+
+  # ── PHASE 4: HERMES ORCHESTRATOR ──
+  hermes_orchestrator:
+    build:
+      context: ..
+      dockerfile: services/hermes_orchestrator/Dockerfile
+    ports:
+      - "8020:8020"
+    environment:
+      - PORT=8020
+      - LLM_SERVICE_URL=http://llm_orchestration:8001
+      - TTS_SERVICE_URL=http://tts:8002
+      - STT_SERVICE_URL=http://stt:8003
+      - VISeme_SERVICE_URL=http://viseme:8004
+      - PRONUNCIATION_SERVICE_URL=http://pronunciation:8005
+      - COIN_LEDGER_SERVICE_URL=http://coin_ledger:8006
+      - CURRICULUM_SERVICE_URL=http://curriculum:8007
+      - MEMORY_SERVICE_URL=http://memory:8008
+      - MODERATION_SERVICE_URL=http://moderation:8009
+      - GRAMMAR_RULE_DB_SERVICE_URL=http://grammar_rule_db:8010
+      - CONTENT_GENERATION_SERVICE_URL=http://content_generation:8011
+      - PERSONALIZATION_SERVICE_URL=http://personalization:8012
+      - GESTURE_EMOTION_SERVICE_URL=http://gesture_emotion:8013
+      - LEADERBOARD_SERVICE_URL=http://leaderboard:8014
+      - SOCIAL_EXCHANGE_SERVICE_URL=http://social_exchange:8015
+      - ANTI_FRAUD_SERVICE_URL=http://anti_fraud:8016
+      - LIVE_CONVERSATION_SERVICE_URL=http://live_conversation:8017
+      - OBSERVABILITY_SERVICE_URL=http://observability:8018
+      - SECURITY_SERVICE_URL=http://security:8019
+    depends_on:
+      - api_gateway
+      - llm_orchestration
+      - moderation
+      - coin_ledger
+    networks:
+      - hermes_network
+
+volumes:
+  postgres_data:
+
+networks:
+  hermes_network:
+    driver: bridge

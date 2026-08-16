@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Hermes LinguaMind — AI Conversation Partner</title>
+<style>
+  :root {
+    --bg: #0f1220; --panel: #171b30; --accent: #6ee7ff; --accent2: #a78bfa;
+    --text: #e9ecf5; --muted: #8b90ab; --danger: #ff6b6b; --good: #4ade80;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; background: radial-gradient(1200px 800px at 50% -10%, #232849, var(--bg));
+    color: var(--text); font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    display: flex; align-items: center; justify-content: center; padding: 24px;
+  }
+  .app { width: 100%; max-width: 560px; }
+  .card {
+    background: var(--panel); border-radius: 20px; padding: 28px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.06);
+  }
+  h1 { font-size: 1.15rem; font-weight: 600; margin: 0 0 4px; text-align: center; }
+  .sub { text-align: center; color: var(--muted); font-size: 0.85rem; margin-bottom: 20px; }
+
+  .stage { display: flex; justify-content: center; margin-bottom: 20px; position: relative; }
+  .avatar-wrap { width: 220px; height: 220px; }
+  #faceSvg { filter: drop-shadow(0 10px 30px rgba(110,231,255,0.15)); }
+
+  .status-row { display: flex; justify-content: center; gap: 8px; align-items: center; margin-bottom: 18px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+  .dot.live { background: var(--good); box-shadow: 0 0 8px var(--good); }
+  .dot.rec { background: var(--danger); box-shadow: 0 0 8px var(--danger); animation: pulse 1s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  #statusText { color: var(--muted); font-size: 0.85rem; }
+
+  .transcript {
+    background: rgba(255,255,255,0.03); border-radius: 12px; padding: 14px 16px;
+    min-height: 70px; margin-bottom: 18px; font-size: 0.9rem; line-height: 1.5;
+  }
+  .transcript .you { color: var(--accent); font-weight: 600; }
+  .transcript .ai { color: var(--accent2); font-weight: 600; }
+  .transcript p { margin: 4px 0; }
+
+  .controls { display: flex; gap: 10px; }
+  button {
+    flex: 1; border: none; border-radius: 12px; padding: 14px; font-size: 0.95rem;
+    font-weight: 600; cursor: pointer; transition: transform 0.08s ease, opacity 0.2s;
+  }
+  button:active { transform: scale(0.97); }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  #connectBtn { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #0f1220; }
+  #talkBtn { background: rgba(255,255,255,0.08); color: var(--text); }
+  #talkBtn.recording { background: var(--danger); color: white; }
+
+  .settings { margin-top: 14px; font-size: 0.75rem; color: var(--muted); text-align: center; }
+  .settings input {
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: var(--text);
+    border-radius: 8px; padding: 4px 8px; font-size: 0.75rem; width: 220px; text-align: center;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="card">
+    <h1>🗣️ Talk with your AI conversation partner</h1>
+    <div class="sub">Real STT → LLM → TTS pipeline, lip-synced from actual viseme timing data</div>
+
+    <div class="stage">
+      <div class="avatar-wrap">
+        <svg id="faceSvg" viewBox="0 0 200 200" width="220" height="220">
+          <defs>
+            <radialGradient id="skinGrad" cx="35%" cy="30%" r="75%">
+              <stop offset="0%" stop-color="#ffe0c2"/>
+              <stop offset="100%" stop-color="#f0b98d"/>
+            </radialGradient>
+          </defs>
+          <ellipse id="head" cx="100" cy="105" rx="62" ry="70" fill="url(#skinGrad)"/>
+          <!-- eyebrows -->
+          <path id="browL" d="M 65 78 Q 78 70 92 78" stroke="#6b4326" stroke-width="4" fill="none" stroke-linecap="round"/>
+          <path id="browR" d="M 108 78 Q 122 70 135 78" stroke="#6b4326" stroke-width="4" fill="none" stroke-linecap="round"/>
+          <!-- eyes -->
+          <ellipse id="eyeL" cx="79" cy="98" rx="8" ry="9" fill="#2b2b2b"/>
+          <ellipse id="eyeR" cx="121" cy="98" rx="8" ry="9" fill="#2b2b2b"/>
+          <ellipse cx="82" cy="95" rx="2.4" ry="2.4" fill="white"/>
+          <ellipse cx="124" cy="95" rx="2.4" ry="2.4" fill="white"/>
+          <!-- nose -->
+          <path d="M 100 105 Q 96 120 100 124 Q 104 122 102 118" stroke="#d69a6b" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+          <!-- mouth: jaw (lower lip) + upper lip, driven by real blend-shape values -->
+          <g id="mouthGroup" transform="translate(100,148)">
+            <path id="mouthShape" d="M -22 0 Q 0 4 22 0 Q 0 8 -22 0 Z" fill="#7a2e2e"/>
+            <path id="mouthUpper" d="M -22 -1 Q 0 -4 22 -1" stroke="#5c3324" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+          </g>
+        </svg>
+      </div>
+    </div>
+
+    <div class="status-row">
+      <div id="liveDot" class="dot"></div>
+      <span id="statusText">Not connected</span>
+    </div>
+
+    <div class="transcript" id="transcript">
+      <p style="color:var(--muted)">Conversation will appear here…</p>
+    </div>
+
+    <div class="controls">
+      <button id="connectBtn">Start Conversation</button>
+      <button id="talkBtn" disabled>Hold to Speak</button>
+    </div>
+
+    <div class="settings">
+      Backend: <input id="backendUrl" value="http://localhost:8017" />
+    </div>
+  </div>
+</div>
+
+<script>
+/*
+ * Real pipeline wiring — no fabricated animation:
+ *  - Mic audio is captured for real via getUserMedia/MediaRecorder.
+ *  - It's sent to the live_conversation service's WebSocket, which runs the
+ *    genuine STT -> LLM -> TTS -> viseme HTTP pipeline server-side.
+ *  - The mouth shape below is driven frame-by-frame by the *actual*
+ *    blend_shapes numbers the viseme service computed from the TTS audio's
+ *    real phoneme timing — not a canned loop.
+ */
+
+const connectBtn = document.getElementById('connectBtn');
+const talkBtn = document.getElementById('talkBtn');
+const statusText = document.getElementById('statusText');
+const liveDot = document.getElementById('liveDot');
+const transcriptEl = document.getElementById('transcript');
+const backendUrlInput = document.getElementById('backendUrl');
+
+const mouthShape = document.getElementById('mouthShape');
+const mouthUpper = document.getElementById('mouthUpper');
+const eyeL = document.getElementById('eyeL');
+const eyeR = document.getElementById('eyeR');
+const head = document.getElementById('head');
+
+let ws = null;
+let mediaRecorder = null;
+let audioChunks = [];
+let sessionId = null;
+let currentAudio = null;
+let visemeTimeline = null;
+let animRAF = null;
+
+function setStatus(text, mode) {
+  statusText.textContent = text;
+  liveDot.className = 'dot' + (mode ? ' ' + mode : '');
+}
+
+function appendTranscript(who, text) {
+  const p = document.createElement('p');
+  p.innerHTML = `<span class="${who === 'You' ? 'you' : 'ai'}">${who}:</span> ${text}`;
+  transcriptEl.appendChild(p);
+  transcriptEl.scrollTop = transcriptEl.scrollHeight;
+}
+
+// ---- Idle animation: real blink loop (genuine periodic animation, not fake "always talking") ----
+function blink() {
+  eyeL.setAttribute('ry', 1);
+  eyeR.setAttribute('ry', 1);
+  setTimeout(() => { eyeL.setAttribute('ry', 9); eyeR.setAttribute('ry', 9); }, 140);
+  setTimeout(blink, 2500 + Math.random() * 3000);
+}
+blink();
+
+let bobPhase = 0;
+function idleBob() {
+  bobPhase += 0.02;
+  const dy = Math.sin(bobPhase) * 1.2;
+  head.setAttribute('cy', 105 + dy);
+  requestAnimationFrame(idleBob);
+}
+idleBob();
+
+// ---- Real lip-sync: mouth shape driven by actual blend_shapes from the backend ----
+function applyBlendShapes(bs) {
+  if (!bs) return;
+  const jawOpen = bs.jawOpen || 0;
+  const pucker = bs.mouthPucker || 0;
+  const close = bs.mouthClose || 0;
+  const smile = bs.mouthSmile || 0;
+  const funnel = bs.mouthFunnel || 0;
+
+  const openAmount = Math.max(2, 22 * jawOpen * (1 - close));
+  const width = 22 - 8 * pucker + 6 * smile;
+
+  mouthShape.setAttribute('d',
+    `M ${-width} 0 Q 0 ${openAmount * 0.3} ${width} 0 Q 0 ${openAmount} ${-width} 0 Z`);
+  mouthUpper.setAttribute('d',
+    `M ${-width} ${-1 - funnel * 3} Q 0 ${-4 - funnel * 2} ${width} ${-1 - funnel * 3}`);
+}
+
+function resetMouth() {
+  mouthShape.setAttribute('d', 'M -22 0 Q 0 4 22 0 Q 0 8 -22 0 Z');
+  mouthUpper.setAttribute('d', 'M -22 -1 Q 0 -4 22 -1');
+}
+
+function animateVisemesWithAudio(audioEl, timeline) {
+  if (animRAF) cancelAnimationFrame(animRAF);
+  if (!timeline || timeline.length === 0) return;
+
+  function step() {
+    if (audioEl.paused || audioEl.ended) {
+      resetMouth();
+      return;
+    }
+    const tMs = audioEl.currentTime * 1000;
+    // Real lookup into the actual server-computed viseme frame timeline
+    let frame = timeline[0];
+    for (const f of timeline) {
+      if (f.time_ms <= tMs) frame = f; else break;
+    }
+    applyBlendShapes(frame.blend_shapes);
+    animRAF = requestAnimationFrame(step);
+  }
+  animRAF = requestAnimationFrame(step);
+}
+
+// ---- Connection ----
+connectBtn.addEventListener('click', async () => {
+  connectBtn.disabled = true;
+  setStatus('Starting session…');
+  const base = backendUrlInput.value.replace(/\/$/, '');
+
+  try {
+    const startResp = await fetch(`${base}/v1/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        user_id: crypto.randomUUID(),
+        mode: 'call',
+        language: 'en',
+        topic: 'general conversation',
+      }),
+    });
+    const startData = await startResp.json();
+    if (!startData.success) throw new Error(startData.error || 'Failed to start session');
+
+    sessionId = startData.data.session_id;
+    const wsUrl = startData.data.websocket_url.replace('ws://localhost:8017', base.replace('http', 'ws'));
+
+    ws = new WebSocket(wsUrl);
+
+    ws.onopen = async () => {
+      setStatus('Connected — hold the button to talk', 'live');
+      talkBtn.disabled = false;
+      connectBtn.textContent = 'Reconnect';
+      connectBtn.disabled = false;
+      await requestMic();
+    };
+
+    ws.onmessage = (event) => {
+      const msg = JSON.parse(event.data);
+      if (msg.type === 'error') {
+        appendTranscript('AI', `⚠️ ${msg.message}`);
+        return;
+      }
+      if (msg.type === 'response') {
+        if (msg.transcript) appendTranscript('You', msg.transcript);
+        if (msg.reply_text) appendTranscript('AI', msg.reply_text);
+
+        if (msg.reply_audio_base64) {
+          const audioBlob = base64ToBlob(msg.reply_audio_base64, 'audio/wav');
+          const url = URL.createObjectURL(audioBlob);
+          currentAudio = new Audio(url);
+          visemeTimeline = msg.viseme_timeline;
+          currentAudio.play();
+          setStatus('AI is speaking…', 'live');
+          animateVisemesWithAudio(currentAudio, visemeTimeline);
+          currentAudio.onended = () => {
+            resetMouth();
+            setStatus('Connected — hold the button to talk', 'live');
+          };
+        }
+      }
+    };
+
+    ws.onclose = () => {
+      setStatus('Disconnected');
+      talkBtn.disabled = true;
+      liveDot.className = 'dot';
+    };
+
+    ws.onerror = () => setStatus('Connection error', 'rec');
+
+  } catch (err) {
+    setStatus('Failed to connect: ' + err.message);
+    connectBtn.disabled = false;
+  }
+});
+
+let mediaStream = null;
+async function requestMic() {
+  try {
+    mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (e) {
+    appendTranscript('AI', '⚠️ Microphone permission is required to talk.');
+  }
+}
+
+function base64ToBlob(b64, mime) {
+  const bytes = atob(b64);
+  const arr = new Uint8Array(bytes.length);
+  for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+  return new Blob([arr], { type: mime });
+}
+
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+// ---- Push-to-talk recording (real mic capture, sent to the real STT pipeline) ----
+talkBtn.addEventListener('mousedown', startRecording);
+talkBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startRecording(); });
+talkBtn.addEventListener('mouseup', stopRecording);
+talkBtn.addEventListener('touchend', (e) => { e.preventDefault(); stopRecording(); });
+talkBtn.addEventListener('mouseleave', () => { if (mediaRecorder && mediaRecorder.state === 'recording') stopRecording(); });
+
+function startRecording() {
+  if (!mediaStream || (mediaRecorder && mediaRecorder.state === 'recording')) return;
+  audioChunks = [];
+  mediaRecorder = new MediaRecorder(mediaStream);
+  mediaRecorder.ondataavailable = (e) => audioChunks.push(e.data);
+  mediaRecorder.start();
+  talkBtn.classList.add('recording');
+  talkBtn.textContent = 'Listening…';
+  setStatus('Recording…', 'rec');
+}
+
+function stopRecording() {
+  if (!mediaRecorder || mediaRecorder.state !== 'recording') return;
+  mediaRecorder.onstop = async () => {
+    talkBtn.classList.remove('recording');
+    talkBtn.textContent = 'Hold to Speak';
+    setStatus('Thinking…', 'live');
+    const blob = new Blob(audioChunks, { type: 'audio/webm' });
+    const b64 = await blobToBase64(blob);
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ audio_base64: b64, format: 'webm' }));
+    }
+  };
+  mediaRecorder.stop();
+}
+</script>
+</body>
+</html>

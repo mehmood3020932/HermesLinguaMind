@@ -1,0 +1,29 @@
+name: Language pack / lesson contribution
+description: Propose a language, locale, lesson or pronunciation contribution
+title: "[Language] "
+labels: ["language-pack"]
+body:
+  - type: input
+    id: source
+    attributes:
+      label: Source language
+    validations:
+      required: true
+  - type: input
+    id: target
+    attributes:
+      label: Target language
+    validations:
+      required: true
+  - type: textarea
+    id: content
+    attributes:
+      label: What will you contribute?
+    validations:
+      required: true
+  - type: textarea
+    id: licensing
+    attributes:
+      label: Source and licensing information
+    validations:
+      required: true

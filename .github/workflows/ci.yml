@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install backend + dev dependencies
+        working-directory: backend
+        run: python -m pip install --upgrade pip && pip install -e '.[dev]'
+      - name: Compile Python
+        run: python -m compileall -q backend
+      - name: Test backend
+        working-directory: backend
+        run: pytest phase3/tests phase4/tests -q
+
+  flutter:
+    name: Flutter checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.35.0'
+          channel: stable
+      - name: Dependencies
+        working-directory: mobile_app
+        run: flutter pub get
+      - name: Analyze
+        working-directory: mobile_app
+        run: flutter analyze
+      - name: Tests
+        working-directory: mobile_app
+        run: flutter test

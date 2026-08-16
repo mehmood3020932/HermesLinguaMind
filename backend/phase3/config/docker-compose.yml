@@ -1,0 +1,453 @@
+version: "3.8"
+
+services:
+  # ============================================================
+  # INFRASTRUCTURE
+  # ============================================================
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: hermes_postgres
+    environment:
+      POSTGRES_DB: hermes_db
+      POSTGRES_USER: hermes_user
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-hermes_secure_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hermes_user -d hermes_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hermes_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: hermes_redis
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hermes_network
+
+  elasticsearch:
+    image: elasticsearch:8.14.0
+    container_name: hermes_elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - hermes_network
+
+  # ============================================================
+  # PHASE 1 SERVICES
+  # ============================================================
+
+  api_gateway:
+    build:
+      context: ../
+      dockerfile: services/api_gateway/Dockerfile
+    container_name: hermes_api_gateway
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://hermes_user:${DATABASE_PASSWORD:-hermes_secure_password}@postgres:5432/hermes_db
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - hermes_network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+
+  llm_orchestration:
+    build:
+      context: ../
+      dockerfile: services/llm_orchestration/Dockerfile
+    container_name: hermes_llm
+    ports:
+      - "8001:8001"
+    environment:
+      - FREELLMAPI_KEY=${FREELLMAPI_KEY}
+      - FREELLMAPI_BASE_URL=${FREELLMAPI_BASE_URL:-https://api.freellmapi.com/v1}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://ollama:11434}
+    networks:
+      - hermes_network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+
+  tts:
+    build:
+      context: ../
+      dockerfile: services/tts/Dockerfile
+    container_name: hermes_tts
+    ports:
+      - "8002:8002"
+    volumes:
+      - tts_models:/models
+    networks:
+      - hermes_network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  stt:
+    build:
+      context: ../
+      dockerfile: services/stt/Dockerfile
+    container_name: hermes_stt
+    ports:
+      - "8003:8003"
+    volumes:
+      - stt_models:/models
+    networks:
+      - hermes_network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+
+  viseme:
+    build:
+      context: ../
+      dockerfile: services/viseme/Dockerfile
+    container_name: hermes_viseme
+    ports:
+      - "8004:8004"
+    networks:
+      - hermes_network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 256M
+
+  pronunciation:
+    build:
+      context: ../
+      dockerfile: services/pronunciation/Dockerfile
+    container_name: hermes_pronunciation
+    ports:
+      - "8005:8005"
+    volumes:
+      - pronunciation_models:/models
+    networks:
+      - hermes_network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+
+  coin_ledger:
+    build:
+      context: ../
+      dockerfile: services/coin_ledger/Dockerfile
+    container_name: hermes_coin_ledger
+    ports:
+      - "8006:8006"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://hermes_user:${DATABASE_PASSWORD:-hermes_secure_password}@postgres:5432/hermes_db
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - hermes_network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+
+  curriculum:
+    build:
+      context: ../
+      dockerfile: services/curriculum/Dockerfile
+    container_name: hermes_curriculum
+    ports:
+      - "8007:8007"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://hermes_user:${DATABASE_PASSWORD:-hermes_secure_password}@postgres:5432/hermes_db
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - hermes_network
+    restart: unless-stopped
+
+  memory:
+    build:
+      context: ../
+      dockerfile: services/memory/Dockerfile
+    container_name: hermes_memory
+    ports:
+      - "8008:8008"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://hermes_user:${DATABASE_PASSWORD:-hermes_secure_password}@postgres:5432/hermes_db
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - hermes_network
+    restart: unless-stopped
+
+  moderation:
+    build:
+      context: ../
+      dockerfile: services/moderation/Dockerfile
+    container_name: hermes_moderation
+    ports:
+      - "8009:8009"
+    networks:
+      - hermes_network
+    restart: unless-stopped
+
+  # ============================================================
+  # PHASE 2 SERVICES
+  # ============================================================
+
+  grammar_rule_db:
+    build:
+      context: ../
+      dockerfile: services/grammar_rule_db/Dockerfile
+    container_name: hermes_grammar
+    ports:
+      - "8010:8010"
+    environment:
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - hermes_network
+    restart: unless-stopped
+
+  content_generation:
+    build:
+      context: ../
+      dockerfile: services/content_generation/Dockerfile
+    container_name: hermes_content_gen
+    ports:
+      - "8011:8011"
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - hermes_network
+    restart: unless-stopped
+
+  personalization:
+    build:
+      context: ../
+      dockerfile: services/personalization/Dockerfile
+    container_name: hermes_personalization
+    ports:
+      - "8012:8012"
+    networks:
+      - hermes_network
+    restart: unless-stopped
+
+  gesture_emotion:
+    build:
+      context: ../
+      dockerfile: services/gesture_emotion/Dockerfile
+    container_name: hermes_gesture
+    ports:
+      - "8013:8013"
+    networks:
+      - hermes_network
+    restart: unless-stopped
+
+  leaderboard:
+    build:
+      context: ../
+      dockerfile: services/leaderboard/Dockerfile
+    container_name: hermes_leaderboard
+    ports:
+      - "8014:8014"
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - hermes_network
+    restart: unless-stopped
+
+  social_exchange:
+    build:
+      context: ../
+      dockerfile: services/social_exchange/Dockerfile
+    container_name: hermes_social
+    ports:
+      - "8015:8015"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://hermes_user:${DATABASE_PASSWORD:-hermes_secure_password}@postgres:5432/hermes_db
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - hermes_network
+    restart: unless-stopped
+
+  anti_fraud:
+    build:
+      context: ../
+      dockerfile: services/anti_fraud/Dockerfile
+    container_name: hermes_antifraud
+    ports:
+      - "8016:8016"
+    networks:
+      - hermes_network
+    restart: unless-stopped
+
+  live_conversation:
+    build:
+      context: ../
+      dockerfile: services/live_conversation/Dockerfile
+    container_name: hermes_live
+    ports:
+      - "8017:8017"
+    networks:
+      - hermes_network
+    restart: unless-stopped
+
+  # ============================================================
+  # PHASE 3 SERVICES
+  # ============================================================
+
+  observability:
+    build:
+      context: ../
+      dockerfile: services/observability/Dockerfile
+    container_name: hermes_observability
+    ports:
+      - "8018:8018"
+      - "9090:9090"  # Prometheus metrics
+    networks:
+      - hermes_network
+    restart: unless-stopped
+
+  security:
+    build:
+      context: ../
+      dockerfile: services/security/Dockerfile
+    container_name: hermes_security
+    ports:
+      - "8019:8019"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://hermes_user:${DATABASE_PASSWORD:-hermes_secure_password}@postgres:5432/hermes_db
+      - S3_BUCKET_NAME=${S3_BUCKET_NAME}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - hermes_network
+    restart: unless-stopped
+
+  # ============================================================
+  # CELERY WORKER (for batch content generation)
+  # ============================================================
+
+  celery_worker:
+    build:
+      context: ../
+      dockerfile: services/content_generation/Dockerfile
+    container_name: hermes_celery_worker
+    command: celery -A main.celery_app worker --loglevel=info --concurrency=4
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - hermes_network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+
+  # ============================================================
+  # OPTIONAL: OLLAMA (self-hosted LLM fallback)
+  # ============================================================
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: hermes_ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - hermes_network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '4.0'
+          memory: 8G
+
+volumes:
+  postgres_data:
+  redis_data:
+  elasticsearch_data:
+  tts_models:
+  stt_models:
+  pronunciation_models:
+  ollama_data:
+
+networks:
+  hermes_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

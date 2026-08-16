@@ -1,0 +1,179 @@
+# =============================================================================
+# Hermes LinguaMind — SINGLE consolidated backend image
+# Multi-stage, ONE image, ONE container runs all 22 microservices +
+# the Hermes orchestrator + the unified adapter + the celery worker via
+# supervisord. No torch/CUDA anywhere (faster-whisper uses CTranslate2,
+# TTS uses Piper/ONNX) — this is what keeps a 24-process image lean.
+#
+# Build:  docker build -f docker/Dockerfile.backend -t hermes-backend .
+# Run:    part of docker-compose.yml as the `hermes_backend` service.
+# =============================================================================
+
+ARG PYTHON_VERSION=3.11
+
+# ── Stage 1: dependency builder ─────────────────────────────────────────
+FROM python:${PYTHON_VERSION}-slim AS builder
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+WORKDIR /build
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        gcc \
+        libpq-dev \
+        ffmpeg \
+        libsndfile1 \
+        curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Piper TTS ships as a self-contained binary release (espeak-ng + libs
+# bundled), not a working PyPI package — see pyproject.toml for why
+# there's no `pip install piper-tts` here. Verified download URL (checked
+# it actually returns a real 26MB tar.gz, not a redirect/404 page) at the
+# time this was written; if rhasspy/piper cuts a newer release, bump the
+# tag below.
+RUN curl -fL -o /tmp/piper.tar.gz \
+        https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_linux_x86_64.tar.gz \
+    && tar -xzf /tmp/piper.tar.gz -C /opt \
+    && rm /tmp/piper.tar.gz \
+    && /opt/piper/piper --help > /dev/null 2>&1 || (echo "piper binary failed to run after extraction" && exit 1)
+
+# Single dependency source of truth (see backend/pyproject.toml — this
+# replaced requirements.txt, requirements-all.txt, requirements-ml.txt,
+# and the two phase3/phase4 requirement files, all now deleted). No
+# setup.py/package source is copied here — `--no-build-isolation` plus
+# an empty py-modules list means this only resolves and installs the
+# pinned dependency graph, it does not try to package this repo itself.
+COPY pyproject.toml .
+RUN python -m venv /opt/venv \
+    && /opt/venv/bin/pip install --upgrade pip \
+    && /opt/venv/bin/pip install . \
+    && /opt/venv/bin/python -m nltk.downloader -d /opt/venv/nltk_data cmudict averaged_perceptron_tagger punkt \
+    && find /opt/venv -type d -name "__pycache__" -prune -exec rm -rf {} + \
+    && find /opt/venv -type d -name "tests" -prune -exec rm -rf {} + \
+    && find /opt/venv -type d -name "test" -prune -exec rm -rf {} + \
+    && find /opt/venv \( -name "*.pyc" -o -name "*.pyo" \) -delete \
+    && rm -rf /opt/venv/lib/python*/site-packages/pip \
+              /opt/venv/lib/python*/site-packages/wheel
+    # setuptools deliberately kept: nltk / sqlalchemy plugins still do a
+    # runtime `import pkg_resources` — stripping it saves a few MB but
+    # risks breaking imports at runtime, not worth it.
+
+# ── Stage 2: production runtime (single image, all services) ───────────
+FROM python:${PYTHON_VERSION}-slim AS runtime
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PATH="/opt/venv/bin:/opt/piper:$PATH" \
+    NLTK_DATA=/opt/venv/nltk_data \
+    ENVIRONMENT=production \
+    LOG_LEVEL=INFO \
+    PIPER_VOICES_DIR=/app/voices
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libpq5 \
+        ffmpeg \
+        libsndfile1 \
+        curl \
+        tini \
+        supervisor \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --gid 1000 hermes \
+    && useradd --uid 1000 --gid hermes --create-home hermes \
+    && mkdir -p /var/log/supervisor /home/hermes/.cache /app/outbox \
+    && chown -R hermes:hermes /var/log/supervisor /home/hermes /app/outbox
+
+COPY --from=builder /opt/venv /opt/venv
+COPY --from=builder /opt/piper /opt/piper
+
+# ── Each service gets its own isolated {main.py, shared/} directory,
+#    exactly mirroring what its old standalone container had — this is
+#    what lets 22 independently-written services with slightly different
+#    `shared/` copies coexist safely as separate processes in one image.
+COPY phase3/services/api_gateway/main.py /app/services/api_gateway/main.py
+COPY phase3/shared/ /app/services/api_gateway/shared/
+COPY phase3/services/llm_orchestration/main.py /app/services/llm_orchestration/main.py
+COPY phase3/shared/ /app/services/llm_orchestration/shared/
+COPY phase3/services/tts/main.py /app/services/tts/main.py
+COPY phase3/shared/ /app/services/tts/shared/
+COPY phase3/services/stt/main.py /app/services/stt/main.py
+COPY phase3/shared/ /app/services/stt/shared/
+COPY phase3/services/viseme/main.py /app/services/viseme/main.py
+COPY phase3/shared/ /app/services/viseme/shared/
+COPY phase3/services/pronunciation/main.py /app/services/pronunciation/main.py
+COPY phase3/shared/ /app/services/pronunciation/shared/
+COPY phase3/services/coin_ledger/main.py /app/services/coin_ledger/main.py
+COPY phase3/shared/ /app/services/coin_ledger/shared/
+COPY phase3/services/curriculum/main.py /app/services/curriculum/main.py
+COPY phase3/shared/ /app/services/curriculum/shared/
+COPY phase3/services/memory/main.py /app/services/memory/main.py
+COPY phase3/shared/ /app/services/memory/shared/
+COPY phase3/services/moderation/main.py /app/services/moderation/main.py
+COPY phase3/shared/ /app/services/moderation/shared/
+COPY phase3/services/grammar_rule_db/main.py /app/services/grammar_rule_db/main.py
+COPY phase3/shared/ /app/services/grammar_rule_db/shared/
+COPY phase3/services/content_generation/main.py /app/services/content_generation/main.py
+COPY phase3/shared/ /app/services/content_generation/shared/
+COPY phase3/services/personalization/main.py /app/services/personalization/main.py
+COPY phase3/shared/ /app/services/personalization/shared/
+COPY phase3/services/gesture_emotion/main.py /app/services/gesture_emotion/main.py
+COPY phase3/shared/ /app/services/gesture_emotion/shared/
+COPY phase3/services/leaderboard/main.py /app/services/leaderboard/main.py
+COPY phase3/shared/ /app/services/leaderboard/shared/
+COPY phase3/services/social_exchange/main.py /app/services/social_exchange/main.py
+COPY phase3/shared/ /app/services/social_exchange/shared/
+COPY phase3/services/anti_fraud/main.py /app/services/anti_fraud/main.py
+COPY phase3/shared/ /app/services/anti_fraud/shared/
+COPY phase3/services/live_conversation/main.py /app/services/live_conversation/main.py
+COPY phase3/shared/ /app/services/live_conversation/shared/
+COPY phase3/services/observability/main.py /app/services/observability/main.py
+COPY phase3/shared/ /app/services/observability/shared/
+COPY phase3/services/security/main.py /app/services/security/main.py
+COPY phase3/shared/ /app/services/security/shared/
+COPY phase3/services/email_service/main.py /app/services/email_service/main.py
+COPY phase3/shared/ /app/services/email_service/shared/
+COPY phase3/services/notification_service/main.py /app/services/notification_service/main.py
+COPY phase3/shared/ /app/services/notification_service/shared/
+COPY phase3/services/avatar_service/main.py /app/services/avatar_service/main.py
+COPY phase3/shared/ /app/services/avatar_service/shared/
+
+# ── Hermes Orchestrator (phase4) — keeps its own package layout & its
+#    own shared/ (phase3 and phase4 shared/ have diverged APIs; do not
+#    merge them into one shared/ directory).
+COPY phase4/shared/ /app/services/hermes_orchestrator_root/shared/
+COPY phase4/services/__init__.py /app/services/hermes_orchestrator_root/services/__init__.py
+COPY phase4/services/hermes_orchestrator/ /app/services/hermes_orchestrator_root/services/hermes_orchestrator/
+
+# ── Gateway — single public API surface for every service.
+COPY gateway/ /app/adapter/gateway/
+
+# ── Ops scripts (avatar character seeding, etc.) — needs its own
+#    top-level phase3/shared/ copy since scripts/seed_avatar_characters.py
+#    resolves `shared` relative to itself (../phase3/shared), not from
+#    inside any single service's already-copied shared/ directory.
+COPY scripts/ /app/scripts/
+COPY phase3/shared/ /app/phase3/shared/
+
+# ── Supervisord config: runs all 24 processes in this one container.
+COPY docker/supervisord.conf /etc/supervisor/conf.d/hermes.conf
+COPY docker/entrypoint.sh /app/entrypoint.sh
+
+RUN chown -R hermes:hermes /app && chmod +x /app/entrypoint.sh
+
+USER hermes
+
+# Only the adapter (public API surface) and nginx-facing port are exposed;
+# all 22 internal services talk to each other over localhost inside this
+# one container, never over the network.
+EXPOSE 8080
+
+HEALTHCHECK --interval=20s --timeout=5s --start-period=45s --retries=3 \
+    CMD curl -fsS http://127.0.0.1:8080/health || exit 1
+
+ENTRYPOINT ["tini", "--"]
+CMD ["/app/entrypoint.sh"]

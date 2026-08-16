@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions & ideas
+    url: https://github.com/YOUR_GITHUB_ORG/hermes-linguamind/discussions
+    about: Ask questions and discuss ideas before opening an issue.
+  - name: Security vulnerability
+    url: https://github.com/YOUR_GITHUB_ORG/hermes-linguamind/security/policy
+    about: Please use the private security reporting process.

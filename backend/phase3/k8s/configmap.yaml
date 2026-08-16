@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hermes-config
+  namespace: hermes-production
+data:
+  redis-url: "redis://hermes-redis:6379/0"
+  celery-broker-url: "redis://hermes-redis:6379/1"
+  celery-result-backend: "redis://hermes-redis:6379/2"
+  elasticsearch-url: "http://hermes-elasticsearch:9200"
+  supported-languages: "en,es,fr,de,it,pt,ja,ko,zh,ar,hi,ru,tr,pl,nl,sv,da,no,fi,uk,cs,sk,hu,ro,bg,el,he,th,vi,id,ms,tl,bn,ur,fa,pa,ta,te,mr,gu,kn,ml,si,ne,my,km,lo,mn,ka,hy,az,kk,uz,tg,ky,tk,ps,sd,am,sw,zu,xh,af,yo,ig,ha,so,rw,st,sn,mg,lt,lv,et,sl,hr,sr,bs,mk,sq,is,ga,cy,gd,mt,eu,ca,gl,lb,fo,br,eo,la,sa,yi,ku,ug,bo,dv,jv,su"
+  default-language: "en"
+  hermes-orchestrator-url: "http://hermes-orchestrator:8020"
+  email-service-url: "http://hermes-email-service:8021"
+  notification-service-url: "http://hermes-notification-service:8022"
+  ollama-base-url: "http://hermes-ollama:11434/v1"
+  log-level: "INFO"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: hermes-secrets
+  namespace: hermes-production
+type: Opaque
+stringData:
+  database-url: "postgresql+asyncpg://hermes_user:CHANGE_ME@postgres:5432/hermes_db"
+  jwt-secret: "CHANGE-THIS-TO-A-32-CHAR-MINIMUM-SECRET-KEY"
+  freellmapi-key: "YOUR_FREELLMAPI_KEY_HERE"
+  huggingface-api-key: "YOUR_HUGGINGFACE_TOKEN_HERE"
+  aws-access-key: "YOUR_AWS_ACCESS_KEY"
+  aws-secret-key: "YOUR_AWS_SECRET_KEY"
+  smtp-password: "YOUR_SMTP_PASSWORD_HERE"
+  vapid-private-key: "YOUR_VAPID_PRIVATE_KEY_HERE"

@@ -1,0 +1,365 @@
+version: "3.8"
+
+# =============================================================================
+# Hermes LinguaMind — consolidated stack
+#
+# Instead of 23 separate custom-built containers (one per microservice) this
+# stack builds ONE lightweight multi-stage image (`hermes_backend`) that runs
+# every service — api_gateway, llm_orchestration, tts, stt, viseme,
+# pronunciation, coin_ledger, curriculum, memory, moderation, grammar_rule_db,
+# content_generation, personalization, gesture_emotion, leaderboard,
+# social_exchange, anti_fraud, live_conversation, observability, security,
+# email_service, notification_service, avatar_service, hermes_orchestrator,
+# unified_adapter, and the celery worker — as 26 supervised processes inside
+# one container.
+#
+# What's left as its own container is genuine infrastructure that should
+# never be bundled into an app image: postgres, redis, elasticsearch, the
+# local LLM runtime (ollama), and nginx as the single public entry point.
+# The real OpenTalking avatar subsystem (avatar_api/worker/web, `avatar`
+# profile) is opt-in — see the AVATAR section below and
+# AVATAR_INTEGRATION.md — since it clones and builds a separate upstream
+# project and isn't needed for the rest of the platform to work.
+#
+# Total containers: 7 by default (down from 30+), 10 with `--profile avatar`.
+# Total custom-built images: 1 (plus 3 upstream OpenTalking images, opt-in).
+# =============================================================================
+
+services:
+  # ============================================================
+  # INFRASTRUCTURE
+  # ============================================================
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: hermes_postgres
+    environment:
+      POSTGRES_DB: hermes_db
+      POSTGRES_USER: ${POSTGRES_USER:-hermes}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-hermes_secure_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-hermes} -d hermes_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hermes_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: hermes_redis
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hermes_network
+
+  elasticsearch:
+    image: elasticsearch:8.14.0
+    container_name: hermes_elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - hermes_network
+
+  # ============================================================
+  # LOCAL LLM — auto-pulled on first `docker compose up`, no API key
+  # needed. `ollama_init` is one-shot: it pulls the configured model into
+  # the shared `ollama_data` volume, then exits. Safe to re-run; `ollama
+  # pull` is a no-op if the model is already present.
+  # ============================================================
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: hermes_ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - hermes_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          cpus: '4.0'
+          memory: 8G
+
+  ollama_init:
+    image: ollama/ollama:latest
+    container_name: hermes_ollama_init
+    depends_on:
+      ollama:
+        condition: service_healthy
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - hermes_network
+    entrypoint: ["sh", "-c"]
+    command:
+      - >
+        echo "Pulling local model: ${OLLAMA_MODEL:-qwen2.5:0.5b}" &&
+        OLLAMA_HOST=http://ollama:11434 ollama pull ${OLLAMA_MODEL:-qwen2.5:0.5b} &&
+        echo "Model ready."
+    restart: "no"
+
+  # One-shot, same pattern as ollama_init: downloads real Piper ONNX voice
+  # models (open-source, MIT, from the official rhasspy/piper-voices
+  # Hugging Face repo — no API key, no cost) into the SAME volume
+  # hermes_backend mounts at /app/voices, so PiperEngine actually finds
+  # them. Safe to re-run — curl -f skips/overwrites deterministically,
+  # no partial-file corruption across restarts since each file is whole
+  # before the container exits.
+  tts_voices_init:
+    image: curlimages/curl:8.9.1
+    container_name: hermes_tts_voices_init
+    volumes:
+      - tts_models:/app/voices
+      - ./scripts/tts_voices_init.sh:/tts_voices_init.sh:ro
+    networks:
+      - hermes_network
+    entrypoint: ["sh", "/tts_voices_init.sh"]
+    restart: "no"
+  # `docker compose up` (no profile) does NOT start these, so the default
+  # lightweight deployment is unaffected. To enable:
+  #   1. ./scripts/setup_opentalking.sh   (clones datascale-ai/opentalking)
+  #   2. docker compose --profile avatar up --build
+  # Reuses the existing `redis` (separate db index) and `ollama` containers
+  # instead of running a second copy of each — keeps this genuinely light.
+  # Default OPENTALKING_INFERENCE_MOCK=1 needs no GPU/model weights; the
+  # LLM turn, TTS, subtitles, and WebRTC delivery are all real even in mock
+  # mode — only the rendered video is a static frame until you point
+  # OPENTALKING_INFERENCE_MOCK=0 at a real model (see AVATAR_INTEGRATION.md).
+  # ============================================================
+
+  avatar_api:
+    profiles: ["avatar"]
+    build:
+      context: ./third_party/opentalking
+      dockerfile: docker/Dockerfile.api
+    container_name: hermes_avatar_api
+    environment:
+      OPENTALKING_REDIS_URL: redis://redis:6379/3
+      OPENTALKING_INFERENCE_MOCK: ${OPENTALKING_INFERENCE_MOCK:-1}
+      OPENTALKING_LLM_PROVIDER: openai_compatible
+      OPENTALKING_LLM_BASE_URL: http://ollama:11434/v1
+      OPENTALKING_LLM_API_KEY: ollama-local-no-key-needed
+      OPENTALKING_LLM_MODEL: ${OLLAMA_MODEL:-qwen2.5:0.5b}
+      OPENTALKING_API_HOST: 0.0.0.0
+      OPENTALKING_API_PORT: 8000
+    ports:
+      - "8210:8000"
+    depends_on:
+      redis:
+        condition: service_healthy
+      ollama_init:
+        condition: service_completed_successfully
+    networks:
+      - hermes_network
+    restart: unless-stopped
+
+  avatar_worker:
+    profiles: ["avatar"]
+    build:
+      context: ./third_party/opentalking
+      dockerfile: docker/Dockerfile.worker
+    container_name: hermes_avatar_worker
+    environment:
+      OPENTALKING_REDIS_URL: redis://redis:6379/3
+      OPENTALKING_INFERENCE_MOCK: ${OPENTALKING_INFERENCE_MOCK:-1}
+      OPENTALKING_LLM_PROVIDER: openai_compatible
+      OPENTALKING_LLM_BASE_URL: http://ollama:11434/v1
+      OPENTALKING_LLM_API_KEY: ollama-local-no-key-needed
+      OPENTALKING_LLM_MODEL: ${OLLAMA_MODEL:-qwen2.5:0.5b}
+    depends_on:
+      redis:
+        condition: service_healthy
+      ollama_init:
+        condition: service_completed_successfully
+    networks:
+      - hermes_network
+    restart: unless-stopped
+
+  avatar_web:
+    profiles: ["avatar"]
+    build:
+      context: ./third_party/opentalking
+      dockerfile: docker/Dockerfile.web
+    container_name: hermes_avatar_web
+    ports:
+      - "5280:80"
+    depends_on:
+      - avatar_api
+    networks:
+      - hermes_network
+    restart: unless-stopped
+
+  # ============================================================
+  # HERMES BACKEND — ONE container, ALL 22 services + orchestrator +
+  # unified adapter + celery worker, run by supervisord. Multi-stage
+  # build keeps it lean (no torch/CUDA — faster-whisper/piper only).
+  # ============================================================
+
+  hermes_backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+    container_name: hermes_backend
+    ports:
+      - "8080:8080"   # unified adapter — the one API surface for the whole platform
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
+      - DATABASE_URL=postgresql+asyncpg://hermes_user:${DATABASE_PASSWORD:-hermes_secure_password}@postgres:5432/hermes_db
+      - DATABASE_HOST=postgres
+      - DATABASE_PORT=5432
+      - REDIS_URL=redis://redis:6379/0
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+      - FREELLMAPI_KEY=${FREELLMAPI_KEY:-}
+      - FREELLMAPI_BASE_URL=${FREELLMAPI_BASE_URL:-https://api.freellmapi.com/v1}
+      - HUGGINGFACE_API_KEY=${HUGGINGFACE_API_KEY:-}
+      - HUGGINGFACE_BASE_URL=${HUGGINGFACE_BASE_URL:-https://router.huggingface.co/v1}
+      - HUGGINGFACE_MODEL=${HUGGINGFACE_MODEL:-meta-llama/Llama-3.2-3B-Instruct}
+      - COLAB_ENDPOINTS=${COLAB_ENDPOINTS:-}
+      - COLAB_API_KEY=${COLAB_API_KEY:-colab}
+      - COLAB_MODEL=${COLAB_MODEL:-auto}
+      - OLLAMA_BASE_URL=http://ollama:11434/v1
+      - OLLAMA_FALLBACK_MODEL=${OLLAMA_MODEL:-qwen2.5:0.5b}
+      - LLM_PROVIDER_PRIORITY=${LLM_PROVIDER_PRIORITY:-ollama,freellmapi}
+      # api_gateway's own inter-service registry (phase3/services/api_gateway/main.py
+      # SERVICE_REGISTRY) defaults to docker-DNS hostnames like "http://tts:8002" —
+      # wrong now that every service lives in this ONE container. Point them all
+      # at localhost explicitly.
+      - LLM_SERVICE_URL=http://localhost:8001
+      - TTS_SERVICE_URL=http://localhost:8002
+      - STT_SERVICE_URL=http://localhost:8003
+      - VISEME_SERVICE_URL=http://localhost:8004
+      - PRONUNCIATION_SERVICE_URL=http://localhost:8005
+      - COIN_LEDGER_SERVICE_URL=http://localhost:8006
+      - CURRICULUM_SERVICE_URL=http://localhost:8007
+      - MEMORY_SERVICE_URL=http://localhost:8008
+      - MODERATION_SERVICE_URL=http://localhost:8009
+      - GRAMMAR_RULE_DB_SERVICE_URL=http://localhost:8010
+      - CONTENT_GENERATION_SERVICE_URL=http://localhost:8011
+      - PERSONALIZATION_SERVICE_URL=http://localhost:8012
+      - GESTURE_EMOTION_SERVICE_URL=http://localhost:8013
+      - LEADERBOARD_SERVICE_URL=http://localhost:8014
+      - SOCIAL_EXCHANGE_SERVICE_URL=http://localhost:8015
+      - ANTI_FRAUD_SERVICE_URL=http://localhost:8016
+      - LIVE_CONVERSATION_SERVICE_URL=http://localhost:8017
+      - OBSERVABILITY_SERVICE_URL=http://localhost:8018
+      - SECURITY_SERVICE_URL=http://localhost:8019
+      - HERMES_ORCHESTRATOR_SERVICE_URL=http://localhost:8020
+      - EMAIL_SERVICE_URL=http://localhost:8021
+      - NOTIFICATION_SERVICE_URL=http://localhost:8022
+      - AVATAR_SERVICE_URL=http://localhost:8023
+      # Only resolves when the `avatar` profile is running; avatar_service's
+      # own /health reports "degraded" (not down) if this is unreachable,
+      # see phase3/services/avatar_service/main.py.
+      - OPENTALKING_API_INTERNAL_URL=http://avatar_api:8000
+      - OPENTALKING_API_PUBLIC_URL=${OPENTALKING_API_PUBLIC_URL:-/avatar-api}
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - SMTP_USE_TLS=${SMTP_USE_TLS:-true}
+      - EMAIL_FROM=${EMAIL_FROM:-no-reply@linguamax.local}
+      - EMAIL_FROM_NAME=${EMAIL_FROM_NAME:-LinguaMax}
+      - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY:-}
+      - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY:-}
+      - VAPID_CLAIM_EMAIL=${VAPID_CLAIM_EMAIL:-mailto:admin@linguamax.local}
+      - S3_BUCKET_NAME=${S3_BUCKET_NAME:-}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
+      - WHISPER_MODEL_SIZE=${STT_MODEL_SIZE:-base}
+    volumes:
+      - tts_models:/app/voices
+      - stt_models:/home/hermes/.cache/whisper
+      - pronunciation_models:/home/hermes/.cache/pronunciation
+      - email_outbox:/app/outbox
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ollama_init:
+        condition: service_completed_successfully
+      tts_voices_init:
+        condition: service_completed_successfully
+    networks:
+      - hermes_network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '3.0'
+          memory: 4G
+
+  nginx:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.nginx
+    container_name: hermes_nginx
+    ports:
+      - "80:80"
+    depends_on:
+      - hermes_backend
+    networks:
+      - hermes_network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 64M
+
+volumes:
+  postgres_data:
+  redis_data:
+  elasticsearch_data:
+  tts_models:
+  stt_models:
+  pronunciation_models:
+  ollama_data:
+  email_outbox:
+
+networks:
+  hermes_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

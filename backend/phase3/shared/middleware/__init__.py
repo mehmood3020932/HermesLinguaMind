@@ -1,0 +1,1 @@
+# Hermes LinguaMind - Shared Middleware

@@ -40,7 +40,7 @@ dependencies:
   package_info_plus: ^10.1.0
   path: ^1.9.0
   path_provider: ^2.1.5
-  permission_handler: ^11.4.0
+  permission_handler: ^13.0.1
   pull_to_refresh_flutter3: ^2.0.2
   record: ^6.0.0
   riverpod_annotation: ^2.6.1

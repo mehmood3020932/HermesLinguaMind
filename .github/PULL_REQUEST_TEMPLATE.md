@@ -1,19 +1,22 @@
-## What changed?
+## Description
+<!-- What does this PR do? -->
 
-## Why?
+## Related Issue
+<!-- Link to issue: Fixes #123 -->
 
-## Validation
-- [ ] Tests added/updated where practical
-- [ ] `make doctor` passes
-- [ ] Flutter analyzer/tests pass when mobile code changed
-- [ ] Docker/compose validation performed when infrastructure changed
+## Type of Change
+- [ ] Bug fix
+- [ ] New feature
+- [ ] Documentation update
+- [ ] Translation/localization
+- [ ] Refactoring
+- [ ] Other
 
-## Product impact
-- [ ] User-facing change includes screenshots/video
-- [ ] Docs updated
-- [ ] Accessibility considered
-- [ ] Privacy/security impact considered
+## Checklist
+- [ ] Tests added/updated
+- [ ] Documentation updated
+- [ ] No breaking changes
+- [ ] Follows code style guidelines
 
-## Licensing
-- [ ] New assets/models/voices have a compatible license
-- [ ] Third-party notices updated if needed
+## Screenshots (if applicable)
+<!-- Add screenshots for UI changes -->

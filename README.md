@@ -327,3 +327,14 @@ If Hermes helps you or you believe in open, multilingual education, your support
 **Sponsors:** help fund the infrastructure.
 
 **Start here:** [`CONTRIBUTING.md`](CONTRIBUTING.md)
+
+
+## 🌍 Contributors
+
+We welcome contributors from around the world! See [CONTRIBUTING.md](CONTRIBUTING.md) to get started.
+
+<a href="https://github.com/mehmood3020932/HermesLinguaMind/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=mehmood3020932/HermesLinguaMind" />
+</a>
+
+Made with [contrib.rocks](https://contrib.rocks).

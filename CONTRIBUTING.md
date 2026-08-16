@@ -1,77 +1,80 @@
-# Contributing to Hermes LinguaMind
+# 🤝 Contributing to Hermes LinguaMind
 
-Thank you for helping build Hermes. The project welcomes code, tests, language packs, lesson content, accessibility improvements, design work, documentation, and infrastructure contributions.
+Welcome! We love contributions from developers worldwide. This guide will help you get started.
 
-## Before you start
+## 🌍 Language / زبان / भाषा / 语言
 
-1. Read the README and relevant architecture docs.
-2. Search existing issues and pull requests.
-3. For large changes, open a design issue first.
-4. Never commit secrets, private keys, user data, model weights, or unlicensed media.
+We welcome contributions in ALL languages! Feel free to:
+- Write issues and PRs in your native language
+- Add translations for UI and docs
+- Create language-specific lesson content
 
-## Development workflow
+## 🚀 Quick Start
 
+### Prerequisites
+- Docker Engine + Docker Compose v2
+- Git
+- Flutter 3.35+ (for mobile app)
+- Python 3.11+ (for backend)
+- 8-16 GB RAM recommended
+
+### Setup in 3 Commands
 ```bash
-git clone https://github.com/your-org/hermes-linguamind.git
-cd hermes-linguamind
-make setup
-make doctor
+git clone https://github.com/mehmood3020932/HermesLinguaMind.git
+cd hermes-linguamind/backend
+docker compose up --build
 ```
 
-For backend changes:
+## 🏷️ Issue Labels Guide
 
-```bash
-make backend-test
-```
+| Label | Meaning | Difficulty |
+|-------|---------|------------|
+| `good first issue` | Perfect for beginners | ⭐ Easy |
+| `help wanted` | We need your help! | ⭐⭐ Medium |
+| `bug` | Something is broken | ⭐⭐ Medium |
+| `enhancement` | New feature idea | ⭐⭐⭐ Hard |
+| `translation` | Language/content work | ⭐ Easy |
+| `documentation` | Docs improvement | ⭐ Easy |
+| `avatar/ai` | ML/AI related | ⭐⭐⭐ Hard |
+| `mobile` | Flutter app changes | ⭐⭐ Medium |
+| `backend` | Python/API changes | ⭐⭐ Medium |
 
-For Flutter changes:
+## 📋 Contribution Workflow
 
-```bash
-cd mobile_app
-flutter pub get
-flutter analyze
-flutter test
-```
+1. **Find an issue** tagged `good first issue` or `help wanted`
+2. **Comment** on the issue saying you want to work on it
+3. **Fork** the repo and create a branch: `git checkout -b fix/issue-123`
+4. **Make changes** and test locally
+5. **Submit PR** with clear description
+6. **Respond** to review feedback
+7. **Celebrate** when merged! 🎉
 
-## Pull requests
+## ✅ PR Checklist
 
-A good PR should:
+Before submitting, ensure:
+- [ ] Tests added/updated where practical
+- [ ] `make doctor` passes locally
+- [ ] No hardcoded secrets or credentials
+- [ ] Documentation updated if behavior changed
+- [ ] Commit messages follow conventional commits
 
-- solve one focused problem;
-- include tests when practical;
-- update documentation when behavior/configuration changes;
-- avoid unrelated formatting churn;
-- explain trade-offs and known limitations;
-- include screenshots/video for meaningful UI changes.
+## 💬 Communication
 
-## Language-pack contributions
+- **GitHub Discussions**: Ask questions, share ideas
+- **Issues**: Bug reports and feature requests
+- **PR Comments**: Code review discussions
+- **Language**: English preferred but NOT required
 
-Language content should identify:
+## 🙏 Code of Conduct
 
-- source language;
-- target language;
-- proficiency level;
-- learning objective;
-- source/reference where factual claims matter;
-- pronunciation/TTS assumptions;
-- license for contributed assets.
+We follow the [Contributor Covenant](CODE_OF_CONDUCT.md). Be kind, respectful, and inclusive.
 
-## Avatar contributions
+## 🎁 Recognition
 
-Only contribute avatars, voices, images, motion assets, and model weights that you have the right to redistribute. Do not submit celebrity likenesses, private-person likenesses, or copyrighted assets without appropriate permission.
+All contributors are recognized in our README! Your name and avatar will appear automatically via all-contributors bot.
 
-## Commit style
+---
 
-Prefer concise conventional prefixes:
+**Questions?** Open a Discussion or tag @mehmood3020932 in any issue.
 
-- `feat:` new feature
-- `fix:` bug fix
-- `docs:` documentation
-- `test:` tests
-- `refactor:` refactor
-- `build:` tooling/dependency/build
-- `chore:` maintenance
-
-## Maintainer review
-
-Maintainers may request security, licensing, accessibility, performance, or test changes before merge. A passing CI job is necessary but not sufficient for merge.
+Thank you for helping make language learning accessible to everyone! ❤️

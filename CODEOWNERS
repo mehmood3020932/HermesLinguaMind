@@ -1,0 +1,15 @@
+# CODEOWNERS - Har change par aapka review zaroori hai
+
+# Default: sab kuch aap review karenge
+* @mehmood3020932
+
+# Backend changes
+/backend/ @mehmood3020932
+
+# Mobile app changes
+/mobile_app/ @mehmood3020932
+
+# Security aur CI files (extra protection)
+/.github/ @mehmood3020932
+/docs/SECURITY_CHECKLIST.md @mehmood3020932
+/backend/.env.example @mehmood3020932

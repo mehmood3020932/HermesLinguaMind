@@ -1,31 +1,40 @@
-# Security Policy
+# 🔒 Security Policy
 
-## Supported versions
+## Reporting a Vulnerability
 
-Security fixes target the default branch and the most recent tagged release.
+**DO NOT** open a public issue for security vulnerabilities!
 
-## Reporting a vulnerability
+Please report privately via:
+- GitHub Security Advisories (preferred): Security tab → Report a vulnerability
+- Email: mehmood3020932@users.noreply.github.com
 
-**Do not open a public GitHub issue for an undisclosed security vulnerability.**
+## Response Timeline
 
-Use GitHub's private vulnerability reporting/security advisory mechanism when enabled for the repository. If it is not enabled, contact the maintainers privately through the repository owner account.
+| Severity | Response Time | Fix Time |
+|----------|---------------|----------|
+| Critical | 24 hours | 48 hours |
+| High | 48 hours | 1 week |
+| Medium | 1 week | 2 weeks |
+| Low | 2 weeks | Next release |
 
-Please include:
+## Supported Versions
 
-- affected component/version;
-- reproduction steps or proof of concept;
-- impact;
-- suggested mitigation if known.
+| Version | Supported |
+|---------|-----------|
+| v0.1.0-alpha | ✅ Yes |
 
-Do not include real user data or secrets in reports.
+## Security Measures
 
-## Security expectations for deployments
+- ✅ Secret scanning enabled (TruffleHog + GitHub native)
+- ✅ Dependabot alerts for dependencies
+- ✅ All PRs require code review before merge
+- ✅ CI tests must pass before merge
+- ✅ No direct pushes to main branch
 
-- Generate unique random application/JWT secrets.
-- Use TLS for public traffic.
-- Keep databases and queues on private networks.
-- Restrict CORS and rate limits.
-- Rotate credentials regularly.
-- Keep dependencies patched.
-- Review model/voice/avatar licenses before redistribution.
-- Back up production data and test restoration.
+## What We Check in PRs
+
+- [ ] No hardcoded secrets/credentials
+- [ ] No malicious code patterns
+- [ ] Tests included for new features
+- [ ] Dependencies from trusted sources
+- [ ] No breaking changes without discussion
